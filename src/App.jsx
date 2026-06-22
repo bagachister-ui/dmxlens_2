@@ -6,6 +6,10 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import UniverseDetail from './pages/UniverseDetail';
+import Sources from './pages/Sources';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -34,7 +38,11 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
+      <Route element={<Layout />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/universe/:protocol/:universe" element={<UniverseDetail />} />
+        <Route path="/sources" element={<Sources />} />
+      </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

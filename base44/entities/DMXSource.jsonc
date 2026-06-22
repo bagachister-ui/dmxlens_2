@@ -1,0 +1,38 @@
+{
+  "name": "DMXSource",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable label for the DMX source"
+    },
+    "protocol": {
+      "type": "string",
+      "enum": [
+        "sACN",
+        "Art-Net"
+      ],
+      "description": "DMX protocol used by this source"
+    },
+    "universe": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 63999,
+      "description": "DMX universe number"
+    },
+    "sourceIP": {
+      "type": "string",
+      "description": "Source IP address (auto-detected in live mode or manual)"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this source is being monitored"
+    }
+  },
+  "required": [
+    "name",
+    "protocol",
+    "universe"
+  ]
+}
