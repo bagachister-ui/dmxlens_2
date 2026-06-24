@@ -18,18 +18,31 @@ export default function Snapshots() {
     if (store.snapshots.length === 0) return;
 
     const wb = XLSX.utils.book_new();
+    const COLS = 20;
 
     for (const snap of store.snapshots) {
-      // Header rows + one row per universe with all 512 channels as columns
       const data = [
         [snap.name],
         [`Captured: ${new Date(snap.timestamp).toLocaleString()}`],
         [],
-        ['Protocol', 'Universe', ...Array.from({ length: 512 }, (_, i) => `Ch ${i + 1}`)],
       ];
 
       for (const u of snap.universes) {
-        data.push([u.protocol, u.universe, ...u.channels]);
+        // Universe header
+        data.push([`${u.protocol} U${u.universe}`]);
+        // Column headers: "Ch" + 1..20
+        data.push(['Ch', ...Array.from({ length: COLS }, (_, i) => i + 1)]);
+        // Value rows: row label (starting channel) + 20 values per row
+        for (let row = 0; row < 512; row += COLS) {
+          const rowValues = [];
+          for (let col = 0; col < COLS; col++) {
+            const chIdx = row + col;
+            rowValues.push(chIdx < 512 ? u.channels[chIdx] : '');
+          }
+          data.push([row + 1, ...rowValues]);
+        }
+        // Blank separator between universes
+        data.push([]);
       }
 
       const ws = XLSX.utils.aoa_to_sheet(data);
