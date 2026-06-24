@@ -16,13 +16,13 @@ import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
 import { dmxStore } from '@/lib/dmxStore';
 import { parseSnapshotFile } from '@/lib/snapshotParser';
-import ShowCard from '@/components/dmx/ShowCard';
 import CreateShowDialog from '@/components/dmx/CreateShowDialog';
 import CloudSnapshotRow from '@/components/dmx/CloudSnapshotRow';
 import MemberManager from '@/components/dmx/MemberManager';
 
 export default function Snapshots() {
   const fileInputRef = useRef(null);
+  const newShowFileRef = useRef(null);
 
   const [email, setEmail] = useState('');
   const [shows, setShows] = useState([]);
@@ -56,9 +56,43 @@ export default function Snapshots() {
   }, []);
 
   const handleCreateShow = async ({ name, description }) => {
-    await base44.entities.Show.create({ name, description, members: [] });
+    const created = await base44.entities.Show.create({ name, description, members: [] });
     setShowDialog(false);
-    await loadShows();
+    setShows((prev) => [created, ...prev]);
+  };
+
+  // Build snapshot records from parsed file data, ordered earliest-on-top
+  const buildSnapshotRecords = (showId, parsed) => {
+    const base = Date.now();
+    return parsed.map((p, i) => ({
+      show_id: showId,
+      name: p.name,
+      // Stagger ascending so the first parsed snapshot has the earliest timestamp (sorts to top)
+      captured_at: new Date(base + i * 1000).toISOString(),
+      universes: p.universes,
+    }));
+  };
+
+  const handleCreateShowFromFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy('newFromFile');
+    try {
+      const parsed = await parseSnapshotFile(file);
+      if (parsed.length === 0) {
+        alert('No snapshot data found in that file. Use a CSV/Excel file exported from this app.');
+      } else {
+        const showName = file.name.replace(/\.(xlsx|xls|csv)$/i, '');
+        const created = await base44.entities.Show.create({ name: showName, description: '', members: [] });
+        await base44.entities.Snapshot.bulkCreate(buildSnapshotRecords(created.id, parsed));
+        setShows((prev) => [created, ...prev]);
+        openShow(created);
+      }
+    } catch (err) {
+      alert(`Could not read that file: ${err.message}`);
+    }
+    setBusy('');
   };
 
   const openShow = async (show) => {
@@ -66,13 +100,14 @@ export default function Snapshots() {
     setMembers(show.members || []);
     setShowSettings(false);
     setLoadingSnaps(true);
-    const snaps = await base44.entities.Snapshot.filter({ show_id: show.id }, '-captured_at');
+    const snaps = await base44.entities.Snapshot.filter({ show_id: show.id }, 'captured_at');
     setSnapshots(snaps);
     setLoadingSnaps(false);
   };
 
-  const reloadSnaps = async () => {
-    const snaps = await base44.entities.Snapshot.filter({ show_id: activeShow.id }, '-captured_at');
+  const reloadSnaps = async (showId = activeShow?.id) => {
+    if (!showId) return;
+    const snaps = await base44.entities.Snapshot.filter({ show_id: showId }, 'captured_at');
     setSnapshots(snaps);
   };
 
@@ -111,14 +146,7 @@ export default function Snapshots() {
       if (parsed.length === 0) {
         alert('No snapshot data found in that file. Use a CSV/Excel file exported from this app.');
       } else {
-        for (const p of parsed) {
-          await base44.entities.Snapshot.create({
-            show_id: activeShow.id,
-            name: p.name,
-            captured_at: new Date().toISOString(),
-            universes: p.universes,
-          });
-        }
+        await base44.entities.Snapshot.bulkCreate(buildSnapshotRecords(activeShow.id, parsed));
       }
     } catch (err) {
       alert(`Could not read that file: ${err.message}`);
@@ -186,13 +214,30 @@ export default function Snapshots() {
               Click a show to open it — capture, upload CSV/Excel, and manage its snapshots inside
             </p>
           </div>
-          <button
-            onClick={() => setShowDialog(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#00E5FF] text-[#0D0F14] rounded-md text-xs font-medium hover:bg-[#00E5FF]/90 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New Show
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              ref={newShowFileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleCreateShowFromFile}
+              className="hidden"
+            />
+            <button
+              onClick={() => newShowFileRef.current?.click()}
+              disabled={busy === 'newFromFile'}
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#161920] text-[#9CA3AF] border border-[#2A2D35] rounded-md text-xs hover:text-white hover:border-[#3A3D45] disabled:opacity-40 transition-colors"
+            >
+              {busy === 'newFromFile' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              Create from File
+            </button>
+            <button
+              onClick={() => setShowDialog(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#00E5FF] text-[#0D0F14] rounded-md text-xs font-medium hover:bg-[#00E5FF]/90 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Show
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
@@ -207,8 +252,8 @@ export default function Snapshots() {
               </div>
               <h2 className="text-sm font-medium text-gray-300 mb-1">No shows yet</h2>
               <p className="text-xs text-[#6B7280] max-w-sm">
-                Create a show to store a series of snapshots in the cloud, upload CSV/Excel
-                captures, and share them with specific team members.
+                Create a show to store a series of snapshots in the cloud, or use "Create from
+                File" to build one directly from an exported CSV/Excel file.
               </p>
             </div>
           ) : (
