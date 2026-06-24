@@ -19,6 +19,7 @@ class DMXStore {
     this.eventLog = [];
     this.maxLogEntries = 80;
     this.artnetOffset = 1; // Art-Net universes are 0-based; offset to display as 1-based
+    this.snapshots = [];
     this._timeoutTimer = null;
     this._startTimeoutChecker();
   }
@@ -190,6 +191,42 @@ class DMXStore {
 
   getActiveUniverses() {
     return this.getAllUniverses().filter((u) => u.signalPresent);
+  }
+
+  takeSnapshot(name) {
+    const universes = this.getAllUniverses().map((u) => ({
+      protocol: u.protocol,
+      universe: u.universe,
+      channels: Array.from(u.channels),
+    }));
+    const snapshot = {
+      id: `snap_${Date.now()}`,
+      name: name || `Snapshot ${this.snapshots.length + 1}`,
+      timestamp: new Date().toISOString(),
+      universes,
+    };
+    this.snapshots.unshift(snapshot);
+    this.log(`Snapshot captured: "${snapshot.name}" (${universes.length} universe${universes.length !== 1 ? 's' : ''})`);
+    this._notify();
+    return snapshot;
+  }
+
+  renameSnapshot(id, newName) {
+    const snap = this.snapshots.find((s) => s.id === id);
+    if (snap) {
+      snap.name = newName;
+      this._notify();
+    }
+  }
+
+  deleteSnapshot(id) {
+    this.snapshots = this.snapshots.filter((s) => s.id !== id);
+    this._notify();
+  }
+
+  clearSnapshots() {
+    this.snapshots = [];
+    this._notify();
   }
 
   log(message, level = 'info') {

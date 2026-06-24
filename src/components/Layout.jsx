@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Activity, LayoutGrid, Radio, Plug } from 'lucide-react';
+import { Activity, LayoutGrid, Radio, Plug, Camera } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { dmxStore } from '@/lib/dmxStore';
 
@@ -8,6 +8,7 @@ const navItems = [
   { label: 'Dashboard', path: '/', icon: LayoutGrid },
   { label: 'Sources', path: '/sources', icon: Radio },
   { label: 'Connection', path: '/connection', icon: Plug },
+  { label: 'Snapshots', path: '/snapshots', icon: Camera },
 ];
 
 export default function Layout() {

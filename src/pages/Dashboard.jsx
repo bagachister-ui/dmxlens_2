@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Plus, Radio } from 'lucide-react';
+import { Plus, Radio, Camera } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
+import { dmxStore } from '@/lib/dmxStore';
 import UniverseCard from '@/components/dmx/UniverseCard';
 import EventLog from '@/components/dmx/EventLog';
 
@@ -24,13 +25,22 @@ export default function Dashboard() {
             <span className="text-[#F59E0B]">{store.mode === 'live' ? 'LIVE MODE' : 'SIMULATION MODE'}</span>
           </p>
         </div>
-        <Link
-          to="/sources"
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#161920] border border-[#2A2D35] rounded-md text-xs text-gray-300 hover:border-[#00E5FF]/40 hover:text-white transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Manage Sources
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => dmxStore.takeSnapshot()}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#161920] border border-[#2A2D35] rounded-md text-xs text-gray-300 hover:border-[#00E5FF]/40 hover:text-white transition-colors"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            Take Snapshot
+          </button>
+          <Link
+            to="/sources"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#161920] border border-[#2A2D35] rounded-md text-xs text-gray-300 hover:border-[#00E5FF]/40 hover:text-white transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Manage Sources
+          </Link>
+        </div>
       </header>
 
       {/* Content */}
