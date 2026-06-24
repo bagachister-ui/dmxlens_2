@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom';
 import { Radio, Wifi, WifiOff } from 'lucide-react';
 import { dmxStore } from '@/lib/dmxStore';
 import { useDMXStore } from '@/hooks/useDMXStore';
-import ActivityPulse from '@/components/dmx/ActivityPulse';
 import ConnectionHistoryList from '@/components/dmx/ConnectionHistoryList';
+
+const PROTOCOLS = ['sACN', 'Art-Net'];
 
 export default function DetectedSources() {
   const store = useDMXStore();
@@ -40,11 +41,11 @@ export default function DetectedSources() {
       </div>
 
       <p className="text-xs text-[#6B7280]">
-        Sources appear automatically as the bridge receives sACN / Art-Net frames. Each row is a
-        distinct sender (protocol + universe + IP). A row disappears when its signal stops.
+        Sources appear automatically as the bridge receives sACN / Art-Net frames, summarized below
+        by protocol. Click a universe to inspect its channels.
       </p>
 
-      {/* Detected source list */}
+      {/* Detected source summary */}
       <div className="space-y-2">
         {sources.length === 0 ? (
           <div className="text-center py-12 bg-[#161920] border border-[#2A2D35] border-dashed rounded-lg">
@@ -59,37 +60,48 @@ export default function DetectedSources() {
             </p>
           </div>
         ) : (
-          sources.map((u) => (
-            <Link
-              key={`${u.protocol}:${u.universe}:${u.sourceIP}`}
-              to={`/universe/${u.protocol}/${u.universe}?ip=${encodeURIComponent(u.sourceIP)}`}
-              className="bg-[#161920] border border-[#2A2D35] rounded-lg p-4 flex items-center gap-4 hover:border-[#00E5FF]/40 transition-colors"
-            >
-              <ActivityPulse active={u.signalPresent} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
+          PROTOCOLS.map((proto) => {
+            const protoSources = sources.filter((s) => s.protocol === proto);
+            if (protoSources.length === 0) return null;
+            return (
+              <div
+                key={proto}
+                className="bg-[#161920] border border-[#2A2D35] rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between mb-3">
                   <span
                     className={`text-[9px] font-mono px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                      u.protocol === 'sACN'
+                      proto === 'sACN'
                         ? 'bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20'
                         : 'bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20'
                     }`}
                   >
-                    {u.protocol}
+                    {proto}
                   </span>
-                  <span className="text-sm text-white font-medium truncate">{u.sourceName}</span>
-                </div>
-                <div className="text-[10px] text-[#6B7280] font-mono">
-                  Universe {u.universe} · {u.sourceIP || 'unknown IP'}
-                </div>
-                <div className="text-[10px] font-mono mt-1">
-                  <span className="text-[#22C55E]">
-                    ● {u.packetRate.toFixed(1)} fps · {u.frameCount} frames
+                  <span className="text-[10px] text-[#6B7280] font-mono">
+                    {protoSources.length} universe{protoSources.length !== 1 ? 's' : ''}
                   </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {protoSources.map((u) => (
+                    <Link
+                      key={`${u.protocol}:${u.universe}:${u.sourceIP}`}
+                      to={`/universe/${u.protocol}/${u.universe}?ip=${encodeURIComponent(u.sourceIP)}`}
+                      title={`${u.sourceName} · ${u.sourceIP || 'unknown IP'} · ${u.packetRate.toFixed(1)} fps`}
+                      className="flex items-center gap-1.5 bg-[#0D0F14] border border-[#2A2D35] rounded-md px-2 py-1 hover:border-[#00E5FF]/40 transition-colors"
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          u.signalPresent ? 'bg-[#22C55E] animate-pulse' : 'bg-[#EF4444]'
+                        }`}
+                      />
+                      <span className="text-xs font-mono text-gray-200">U{u.universe}</span>
+                    </Link>
+                  ))}
                 </div>
               </div>
-            </Link>
-          ))
+            );
+          })
         )}
       </div>
 
