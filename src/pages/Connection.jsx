@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Wifi, WifiOff, Copy, Download, Check, Plug, FileCode, Package, SlidersHorizontal } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
+import { dmxStore } from '@/lib/dmxStore';
 import { bridgeScript, bridgePackageJson } from '@/lib/bridgeContent';
+import ConnectionHistoryList from '@/components/dmx/ConnectionHistoryList';
 
 const steps = [
   { num: 1, title: 'Install Node.js 18+', desc: 'Download from nodejs.org and install on a machine connected to your lighting network (Ethernet or WiFi).' },
@@ -29,6 +31,11 @@ export default function Connection() {
 
   const handleDisconnect = () => {
     store.disconnectWebSocket();
+  };
+
+  const handleConnectFromHistory = (url) => {
+    setWsUrl(url);
+    store.connectWebSocket(url);
   };
 
   const copyToClipboard = (text, id) => {
@@ -108,6 +115,14 @@ export default function Connection() {
             )}
           </div>
         </div>
+
+        {/* Connection history */}
+        <ConnectionHistoryList
+          history={store.connectionHistory}
+          onConnect={handleConnectFromHistory}
+          onRename={(id, name) => dmxStore.renameConnectionHistory(id, name)}
+          onDelete={(id) => dmxStore.deleteConnectionHistory(id)}
+        />
 
         {/* Art-Net universe offset */}
         <div className="bg-[#161920] border border-[#2A2D35] rounded-lg p-5">

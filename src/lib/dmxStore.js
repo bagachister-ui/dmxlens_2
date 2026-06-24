@@ -20,6 +20,7 @@ class DMXStore {
     this.maxLogEntries = 80;
     this.artnetOffset = 1; // Art-Net universes are 0-based; offset to display as 1-based
     this.snapshots = [];
+    this.connectionHistory = this._loadConnectionHistory();
     this._timeoutTimer = null;
     this._startTimeoutChecker();
   }
@@ -229,6 +230,52 @@ class DMXStore {
     this._notify();
   }
 
+  _loadConnectionHistory() {
+    try {
+      return JSON.parse(localStorage.getItem('dmx_connection_history') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  _saveConnectionHistory() {
+    try {
+      localStorage.setItem('dmx_connection_history', JSON.stringify(this.connectionHistory));
+    } catch (e) {
+      // ignore storage errors
+    }
+  }
+
+  addConnectionHistory(url) {
+    this.connectionHistory = this.connectionHistory.filter((h) => h.url !== url);
+    this.connectionHistory.unshift({
+      id: `conn_${Date.now()}`,
+      url,
+      name: '',
+      lastUsed: new Date().toISOString(),
+    });
+    if (this.connectionHistory.length > 20) {
+      this.connectionHistory = this.connectionHistory.slice(0, 20);
+    }
+    this._saveConnectionHistory();
+    this._notify();
+  }
+
+  renameConnectionHistory(id, name) {
+    const entry = this.connectionHistory.find((h) => h.id === id);
+    if (entry) {
+      entry.name = name;
+      this._saveConnectionHistory();
+      this._notify();
+    }
+  }
+
+  deleteConnectionHistory(id) {
+    this.connectionHistory = this.connectionHistory.filter((h) => h.id !== id);
+    this._saveConnectionHistory();
+    this._notify();
+  }
+
   log(message, level = 'info') {
     this.eventLog.unshift({
       message,
@@ -265,6 +312,7 @@ class DMXStore {
       }
     }
     this.wsUrl = url;
+    this.addConnectionHistory(url);
     this.wsStatus = 'connecting';
     this.log(`Connecting to WebSocket bridge: ${url}`);
     this._notify();
