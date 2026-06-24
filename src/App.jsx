@@ -10,6 +10,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import UniverseDetail from './pages/UniverseDetail';
 import Sources from './pages/Sources';
+import Connection from './pages/Connection';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -42,6 +43,7 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/universe/:protocol/:universe" element={<UniverseDetail />} />
         <Route path="/sources" element={<Sources />} />
+        <Route path="/connection" element={<Connection />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
