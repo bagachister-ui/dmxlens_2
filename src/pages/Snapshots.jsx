@@ -17,6 +17,7 @@ import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
 import { dmxStore } from '@/lib/dmxStore';
 import { parseSnapshotFile } from '@/lib/snapshotParser';
+import { progressBus } from '@/lib/progressBus';
 import CreateShowDialog from '@/components/dmx/CreateShowDialog';
 import CloudSnapshotRow from '@/components/dmx/CloudSnapshotRow';
 import MemberManager from '@/components/dmx/MemberManager';
@@ -41,26 +42,28 @@ export default function Snapshots() {
 
   const isOwner = activeShow && activeShow.created_by === email;
 
-  const loadShows = async () => {
-    const me = await base44.auth.me();
-    setEmail(me.email);
-    const all = await base44.entities.Show.list('-updated_date');
-    const visible = all.filter(
-      (s) => s.created_by === me.email || (s.members || []).includes(me.email.toLowerCase())
-    );
-    setShows(visible);
-    setLoadingShows(false);
-  };
+  const loadShows = () =>
+    progressBus.track(async () => {
+      const me = await base44.auth.me();
+      setEmail(me.email);
+      const all = await base44.entities.Show.list('-updated_date');
+      const visible = all.filter(
+        (s) => s.created_by === me.email || (s.members || []).includes(me.email.toLowerCase())
+      );
+      setShows(visible);
+      setLoadingShows(false);
+    });
 
   useEffect(() => {
     loadShows();
   }, []);
 
-  const handleCreateShow = async ({ name, description }) => {
-    const created = await base44.entities.Show.create({ name, description, members: [] });
-    setShowDialog(false);
-    setShows((prev) => [created, ...prev]);
-  };
+  const handleCreateShow = ({ name, description }) =>
+    progressBus.track(async () => {
+      const created = await base44.entities.Show.create({ name, description, members: [] });
+      setShowDialog(false);
+      setShows((prev) => [created, ...prev]);
+    });
 
   // Build snapshot records from parsed file data, ordered earliest-on-top
   const buildSnapshotRecords = (showId, parsed) => {
@@ -79,6 +82,7 @@ export default function Snapshots() {
     e.target.value = '';
     if (!file) return;
     setBusy('newFromFile');
+    progressBus.start();
     try {
       const parsed = await parseSnapshotFile(file);
       if (parsed.length === 0) {
@@ -93,36 +97,41 @@ export default function Snapshots() {
     } catch (err) {
       alert(`Could not read that file: ${err.message}`);
     }
+    progressBus.done();
     setBusy('');
   };
 
   const handleDeleteShow = async (show) => {
     if (!window.confirm(`Delete "${show.name}" and all of its snapshots? This cannot be undone.`)) return;
     setBusy(`delShow:${show.id}`);
+    progressBus.start();
     const snaps = await base44.entities.Snapshot.filter({ show_id: show.id });
     for (const s of snaps) {
       await base44.entities.Snapshot.delete(s.id);
     }
     await base44.entities.Show.delete(show.id);
     setShows((prev) => prev.filter((s) => s.id !== show.id));
+    progressBus.done();
     setBusy('');
   };
 
-  const openShow = async (show) => {
-    setActiveShow(show);
-    setMembers(show.members || []);
-    setShowSettings(false);
-    setLoadingSnaps(true);
-    const snaps = await base44.entities.Snapshot.filter({ show_id: show.id }, 'captured_at');
-    setSnapshots(snaps);
-    setLoadingSnaps(false);
-  };
+  const openShow = (show) =>
+    progressBus.track(async () => {
+      setActiveShow(show);
+      setMembers(show.members || []);
+      setShowSettings(false);
+      setLoadingSnaps(true);
+      const snaps = await base44.entities.Snapshot.filter({ show_id: show.id }, 'captured_at');
+      setSnapshots(snaps);
+      setLoadingSnaps(false);
+    });
 
-  const reloadSnaps = async (showId = activeShow?.id) => {
-    if (!showId) return;
-    const snaps = await base44.entities.Snapshot.filter({ show_id: showId }, 'captured_at');
-    setSnapshots(snaps);
-  };
+  const reloadSnaps = (showId = activeShow?.id) =>
+    progressBus.track(async () => {
+      if (!showId) return;
+      const snaps = await base44.entities.Snapshot.filter({ show_id: showId }, 'captured_at');
+      setSnapshots(snaps);
+    });
 
   const backToShows = () => {
     setActiveShow(null);
@@ -134,6 +143,7 @@ export default function Snapshots() {
     const name = window.prompt('Name this snapshot:', `Snapshot ${snapshots.length + 1}`);
     if (name === null) return;
     setBusy('save');
+    progressBus.start();
     const universes = dmxStore.getAllUniverses().map((u) => ({
       protocol: u.protocol,
       universe: u.universe,
@@ -145,8 +155,9 @@ export default function Snapshots() {
       captured_at: new Date().toISOString(),
       universes,
     });
-    setBusy('');
     await reloadSnaps();
+    progressBus.done();
+    setBusy('');
   };
 
   const handleImport = async (e) => {
@@ -154,6 +165,7 @@ export default function Snapshots() {
     e.target.value = '';
     if (!file) return;
     setBusy('import');
+    progressBus.start();
     try {
       const parsed = await parseSnapshotFile(file);
       if (parsed.length === 0) {
@@ -164,8 +176,9 @@ export default function Snapshots() {
     } catch (err) {
       alert(`Could not read that file: ${err.message}`);
     }
-    setBusy('');
     await reloadSnaps();
+    progressBus.done();
+    setBusy('');
   };
 
   const handleExportExcel = () => {
@@ -201,14 +214,17 @@ export default function Snapshots() {
     XLSX.writeFile(wb, `${safeShow}-snapshots-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  const handleDeleteSnapshot = async (id) => {
-    await base44.entities.Snapshot.delete(id);
-    await reloadSnaps();
-  };
+  const handleDeleteSnapshot = (id) =>
+    progressBus.track(async () => {
+      await base44.entities.Snapshot.delete(id);
+      await reloadSnaps();
+    });
 
   const handleSaveMembers = async () => {
     setSavingMembers(true);
+    progressBus.start();
     await base44.entities.Show.update(activeShow.id, { members });
+    progressBus.done();
     setSavingMembers(false);
     setShowSettings(false);
     const updated = { ...activeShow, members };

@@ -6,6 +6,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
+import GlobalProgressBar from './components/GlobalProgressBar';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import UniverseDetail from './pages/UniverseDetail';
@@ -59,6 +60,7 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
+          <GlobalProgressBar />
           <ScrollToTop />
           <AuthenticatedApp />
         </Router>
