@@ -13,6 +13,7 @@ import UniverseDetail from './pages/UniverseDetail';
 import Sources from './pages/Sources';
 import Connection from './pages/Connection';
 import Snapshots from './pages/Snapshots';
+import Compare from './pages/Compare';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -45,6 +46,7 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/universe/:protocol/:universe" element={<UniverseDetail />} />
         <Route path="/sources" element={<Sources />} />
+        <Route path="/compare" element={<Compare />} />
         <Route path="/connection" element={<Connection />} />
         <Route path="/snapshots" element={<Snapshots />} />
       </Route>
