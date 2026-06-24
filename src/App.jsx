@@ -12,8 +12,6 @@ import UniverseDetail from './pages/UniverseDetail';
 import Sources from './pages/Sources';
 import Connection from './pages/Connection';
 import Snapshots from './pages/Snapshots';
-import Shows from './pages/Shows';
-import ShowDetail from './pages/ShowDetail';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -48,8 +46,6 @@ const AuthenticatedApp = () => {
         <Route path="/sources" element={<Sources />} />
         <Route path="/connection" element={<Connection />} />
         <Route path="/snapshots" element={<Snapshots />} />
-        <Route path="/shows" element={<Shows />} />
-        <Route path="/shows/:showId" element={<ShowDetail />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

@@ -1,147 +1,371 @@
-import { useState } from 'react';
-import { Camera, FileSpreadsheet, Trash2, Inbox } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {
+  Plus,
+  FolderOpen,
+  Loader2,
+  ArrowLeft,
+  Camera,
+  Upload,
+  Settings2,
+  Inbox,
+  Save,
+  X,
+  FileSpreadsheet,
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { useDMXStore } from '@/hooks/useDMXStore';
+import { base44 } from '@/api/base44Client';
 import { dmxStore } from '@/lib/dmxStore';
-import SnapshotSpreadsheet from '@/components/dmx/SnapshotSpreadsheet';
+import { parseSnapshotFile } from '@/lib/snapshotParser';
+import ShowCard from '@/components/dmx/ShowCard';
+import CreateShowDialog from '@/components/dmx/CreateShowDialog';
+import CloudSnapshotRow from '@/components/dmx/CloudSnapshotRow';
+import MemberManager from '@/components/dmx/MemberManager';
 
 export default function Snapshots() {
-  const store = useDMXStore();
-  const [snapshotName, setSnapshotName] = useState('');
+  const fileInputRef = useRef(null);
 
-  const handleTakeSnapshot = () => {
-    if (!snapshotName.trim()) return;
-    dmxStore.takeSnapshot(snapshotName.trim());
-    setSnapshotName('');
+  const [email, setEmail] = useState('');
+  const [shows, setShows] = useState([]);
+  const [loadingShows, setLoadingShows] = useState(true);
+  const [showDialog, setShowDialog] = useState(false);
+
+  // Selected show (detail view)
+  const [activeShow, setActiveShow] = useState(null);
+  const [snapshots, setSnapshots] = useState([]);
+  const [loadingSnaps, setLoadingSnaps] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [members, setMembers] = useState([]);
+  const [savingMembers, setSavingMembers] = useState(false);
+  const [busy, setBusy] = useState('');
+
+  const isOwner = activeShow && activeShow.created_by === email;
+
+  const loadShows = async () => {
+    const me = await base44.auth.me();
+    setEmail(me.email);
+    const all = await base44.entities.Show.list('-updated_date');
+    const visible = all.filter(
+      (s) => s.created_by === me.email || (s.members || []).includes(me.email.toLowerCase())
+    );
+    setShows(visible);
+    setLoadingShows(false);
+  };
+
+  useEffect(() => {
+    loadShows();
+  }, []);
+
+  const handleCreateShow = async ({ name, description }) => {
+    await base44.entities.Show.create({ name, description, members: [] });
+    setShowDialog(false);
+    await loadShows();
+  };
+
+  const openShow = async (show) => {
+    setActiveShow(show);
+    setMembers(show.members || []);
+    setShowSettings(false);
+    setLoadingSnaps(true);
+    const snaps = await base44.entities.Snapshot.filter({ show_id: show.id }, '-captured_at');
+    setSnapshots(snaps);
+    setLoadingSnaps(false);
+  };
+
+  const reloadSnaps = async () => {
+    const snaps = await base44.entities.Snapshot.filter({ show_id: activeShow.id }, '-captured_at');
+    setSnapshots(snaps);
+  };
+
+  const backToShows = () => {
+    setActiveShow(null);
+    setSnapshots([]);
+    setShowSettings(false);
+  };
+
+  const handleSaveLive = async () => {
+    const name = window.prompt('Name this snapshot:', `Snapshot ${snapshots.length + 1}`);
+    if (name === null) return;
+    setBusy('save');
+    const universes = dmxStore.getAllUniverses().map((u) => ({
+      protocol: u.protocol,
+      universe: u.universe,
+      channels: Array.from(u.channels),
+    }));
+    await base44.entities.Snapshot.create({
+      show_id: activeShow.id,
+      name: name.trim() || `Snapshot ${snapshots.length + 1}`,
+      captured_at: new Date().toISOString(),
+      universes,
+    });
+    setBusy('');
+    await reloadSnaps();
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy('import');
+    try {
+      const parsed = await parseSnapshotFile(file);
+      if (parsed.length === 0) {
+        alert('No snapshot data found in that file. Use a CSV/Excel file exported from this app.');
+      } else {
+        for (const p of parsed) {
+          await base44.entities.Snapshot.create({
+            show_id: activeShow.id,
+            name: p.name,
+            captured_at: new Date().toISOString(),
+            universes: p.universes,
+          });
+        }
+      }
+    } catch (err) {
+      alert(`Could not read that file: ${err.message}`);
+    }
+    setBusy('');
+    await reloadSnaps();
   };
 
   const handleExportExcel = () => {
-    if (store.snapshots.length === 0) return;
-
+    if (snapshots.length === 0) return;
     const wb = XLSX.utils.book_new();
     const COLS = 20;
 
-    for (const snap of store.snapshots) {
+    for (const snap of snapshots) {
       const data = [
         [snap.name],
-        [`Captured: ${new Date(snap.timestamp).toLocaleString()}`],
+        [`Captured: ${snap.captured_at ? new Date(snap.captured_at).toLocaleString() : ''}`],
         [],
       ];
-
-      for (const u of snap.universes) {
-        // Universe header
+      for (const u of snap.universes || []) {
         data.push([`${u.protocol} U${u.universe}`]);
-        // Column headers: "Ch" + 1..20
         data.push(['Ch', ...Array.from({ length: COLS }, (_, i) => i + 1)]);
-        // Value rows: row label (starting channel) + 20 values per row
         for (let row = 0; row < 512; row += COLS) {
           const rowValues = [];
           for (let col = 0; col < COLS; col++) {
             const chIdx = row + col;
-            rowValues.push(chIdx < 512 ? u.channels[chIdx] : '');
+            rowValues.push(chIdx < 512 ? (u.channels?.[chIdx] ?? 0) : '');
           }
           data.push([row + 1, ...rowValues]);
         }
-        // Blank separator between universes
         data.push([]);
       }
-
       const ws = XLSX.utils.aoa_to_sheet(data);
-      // Excel sheet names: max 31 chars, no special chars
       const sheetName = snap.name.replace(/[\\/?*[\]:]/g, '_').substring(0, 31) || 'Snapshot';
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
 
-    XLSX.writeFile(wb, `dmx-snapshots-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    const safeShow = (activeShow?.name || 'show').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    XLSX.writeFile(wb, `${safeShow}-snapshots-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  const handleDeleteSnapshot = async (id) => {
+    await base44.entities.Snapshot.delete(id);
+    await reloadSnaps();
+  };
+
+  const handleSaveMembers = async () => {
+    setSavingMembers(true);
+    await base44.entities.Show.update(activeShow.id, { members });
+    setSavingMembers(false);
+    setShowSettings(false);
+    const updated = { ...activeShow, members };
+    setActiveShow(updated);
+    setShows((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+  };
+
+  // ─────────────────────────────────────────────  SHOWS LIST VIEW
+  if (!activeShow) {
+    return (
+      <div className="h-full flex flex-col">
+        <header className="px-6 py-4 border-b border-[#2A2D35] flex items-center justify-between flex-shrink-0">
+          <div>
+            <h1 className="text-lg font-semibold text-white tracking-tight">Snapshots</h1>
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              Open a show to capture, upload, and manage its DMX snapshots
+            </p>
+          </div>
+          <button
+            onClick={() => setShowDialog(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#00E5FF] text-[#0D0F14] rounded-md text-xs font-medium hover:bg-[#00E5FF]/90 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Show
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-auto p-6 max-w-4xl mx-auto w-full">
+          {loadingShows ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-6 h-6 text-[#00E5FF] animate-spin" />
+            </div>
+          ) : shows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#161920] border border-[#2A2D35] flex items-center justify-center mb-4">
+                <FolderOpen className="w-7 h-7 text-[#4B5563]" />
+              </div>
+              <h2 className="text-sm font-medium text-gray-300 mb-1">No shows yet</h2>
+              <p className="text-xs text-[#6B7280] max-w-sm">
+                Create a show to store a series of snapshots in the cloud, upload CSV/Excel
+                captures, and share them with specific team members.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {shows.map((show) => (
+                <button key={show.id} onClick={() => openShow(show)} className="text-left">
+                  <ShowCardStatic show={show} currentEmail={email} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {showDialog && (
+          <CreateShowDialog onClose={() => setShowDialog(false)} onCreate={handleCreateShow} />
+        )}
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────  SHOW DETAIL VIEW
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <header className="px-6 py-4 border-b border-[#2A2D35] flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-lg font-semibold text-white tracking-tight">Snapshots</h1>
-          <p className="text-xs text-[#6B7280] mt-0.5">
-            {store.snapshots.length} snapshot{store.snapshots.length !== 1 ? 's' : ''} captured
-          </p>
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={backToShows}
+            className="p-1.5 text-[#6B7280] hover:text-white hover:bg-white/5 rounded transition-colors flex-shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold text-white tracking-tight truncate">{activeShow.name}</h1>
+            <p className="text-xs text-[#6B7280] mt-0.5">
+              {snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''}
+              {activeShow.description ? ` · ${activeShow.description}` : ''}
+            </p>
+          </div>
         </div>
-        <button
-          onClick={handleExportExcel}
-          disabled={store.snapshots.length === 0}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/30 rounded-md text-xs hover:bg-[#22C55E]/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5" />
-          Export to Excel
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleImport}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy === 'import'}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#161920] text-[#9CA3AF] border border-[#2A2D35] rounded-md text-xs hover:text-white hover:border-[#3A3D45] disabled:opacity-40 transition-colors"
+          >
+            {busy === 'import' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+            Upload CSV / Excel
+          </button>
+          <button
+            onClick={handleExportExcel}
+            disabled={snapshots.length === 0}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/30 rounded-md text-xs hover:bg-[#22C55E]/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            Export
+          </button>
+          <button
+            onClick={handleSaveLive}
+            disabled={busy === 'save'}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#00E5FF] text-[#0D0F14] rounded-md text-xs font-medium hover:bg-[#00E5FF]/90 disabled:opacity-40 transition-colors"
+          >
+            {busy === 'save' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+            Save Current
+          </button>
+          {isOwner && (
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-1.5 text-[#6B7280] hover:text-white hover:bg-white/5 rounded transition-colors"
+            >
+              <Settings2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-auto p-6 max-w-5xl mx-auto w-full">
-        {/* Capture controls */}
-        <div className="bg-[#161920] border border-[#2A2D35] rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Camera className="w-4 h-4 text-[#00E5FF]" />
-            <h2 className="text-sm font-semibold text-white">Capture Snapshot</h2>
+        {showSettings && isOwner && (
+          <div className="bg-[#161920] border border-[#2A2D35] rounded-lg p-5 mb-6">
+            <MemberManager ownerEmail={activeShow.created_by} members={members} onChange={setMembers} />
+            <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-[#2A2D35]">
+              <button
+                onClick={() => {
+                  setMembers(activeShow.members || []);
+                  setShowSettings(false);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#9CA3AF] hover:text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveMembers}
+                disabled={savingMembers}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00E5FF] text-[#0D0F14] rounded-md text-xs font-medium hover:bg-[#00E5FF]/90 disabled:opacity-40 transition-colors"
+              >
+                {savingMembers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Save Members
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-[#6B7280] mb-3">
-            Captures the current DMX values across all universes. Enter a name — it's used as the sheet name in the Excel export.
-          </p>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={snapshotName}
-              onChange={(e) => setSnapshotName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleTakeSnapshot()}
-              placeholder="e.g. Cue 1 — Opening look"
-              className="flex-1 bg-[#0D0F14] border border-[#2A2D35] rounded-md px-3 py-2 text-sm text-white placeholder-[#4B5563] focus:outline-none focus:border-[#00E5FF]/50 transition-colors"
-            />
-            <button
-              onClick={handleTakeSnapshot}
-              disabled={!snapshotName.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-[#00E5FF] text-[#0D0F14] rounded-md text-sm font-medium hover:bg-[#00E5FF]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <Camera className="w-4 h-4" />
-              Capture
-            </button>
-          </div>
-        </div>
+        )}
 
-        {/* Snapshot list */}
-        {store.snapshots.length === 0 ? (
+        {loadingSnaps ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 text-[#00E5FF] animate-spin" />
+          </div>
+        ) : snapshots.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-16 h-16 rounded-2xl bg-[#161920] border border-[#2A2D35] flex items-center justify-center mb-4">
               <Inbox className="w-7 h-7 text-[#4B5563]" />
             </div>
-            <h2 className="text-sm font-medium text-gray-300 mb-1">No snapshots yet</h2>
+            <h2 className="text-sm font-medium text-gray-300 mb-1">No snapshots in this show</h2>
             <p className="text-xs text-[#6B7280] max-w-sm">
-              Capture a snapshot to save the current state of all DMX universes. Snapshots can be renamed and exported to Excel.
+              Save the current live capture, or upload a previously exported CSV/Excel file to populate this show.
             </p>
           </div>
         ) : (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-mono uppercase tracking-wider text-[#6B7280]">Captured Cues</h2>
-              <button
-                onClick={() => {
-                  if (confirm('Delete all snapshots?')) dmxStore.clearSnapshots();
-                }}
-                className="flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#EF4444] transition-colors"
-              >
-                <Trash2 className="w-3 h-3" />
-                Clear All
-              </button>
-            </div>
-            <div className="space-y-3">
-              {store.snapshots.map((snap) => (
-                <SnapshotSpreadsheet
-                  key={snap.id}
-                  snapshot={snap}
-                  onRename={(id, name) => dmxStore.renameSnapshot(id, name)}
-                  onDelete={(id) => dmxStore.deleteSnapshot(id)}
-                />
-              ))}
-            </div>
-          </>
+          <div className="space-y-3">
+            {snapshots.map((snap) => (
+              <CloudSnapshotRow key={snap.id} snapshot={snap} onDelete={handleDeleteSnapshot} />
+            ))}
+          </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Non-Link version of the show card (used inside a button to open inline)
+function ShowCardStatic({ show, currentEmail }) {
+  const isOwner = show.created_by === currentEmail;
+  const memberCount = (show.members?.length || 0) + 1;
+  return (
+    <div className="block bg-[#161920] border border-[#2A2D35] rounded-lg p-4 hover:border-[#00E5FF]/40 transition-colors h-full">
+      <div className="flex items-start gap-3 min-w-0">
+        <div className="w-9 h-9 rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/20 flex items-center justify-center flex-shrink-0">
+          <FolderOpen className="w-4 h-4 text-[#00E5FF]" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium text-white truncate">{show.name}</h3>
+          {show.description && (
+            <p className="text-xs text-[#6B7280] mt-0.5 truncate">{show.description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-[#6B7280]">
+            <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+            <span className={isOwner ? 'text-[#00E5FF]' : 'text-[#6B7280]'}>
+              {isOwner ? 'Owner' : 'Member'}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
