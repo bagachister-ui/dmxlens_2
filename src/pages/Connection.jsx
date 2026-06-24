@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Wifi, WifiOff, Copy, Download, Check, Plug, FileCode, Package } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
-import bridgeScript from '../bridge-content/dmx-bridge.txt?raw';
-import bridgePackageJson from '../bridge-content/package-json.txt?raw';
+import { bridgeScript, bridgePackageJson } from '@/lib/bridgeContent';
 
 const steps = [
   { num: 1, title: 'Install Node.js 18+', desc: 'Download from nodejs.org and install on a machine connected to your lighting network (Ethernet or WiFi).' },

@@ -1,4 +1,21 @@
-#!/usr/bin/env node
+// Bridge script content embedded as string constants for download/display from the webapp.
+// Escaped for use inside JavaScript template literals: backticks -> \`, ${ -> \${, literal \n -> \\n, etc.
+
+export const bridgePackageJson = `{
+  "name": "dmx-signal-bridge",
+  "version": "1.0.0",
+  "description": "Local UDP-to-WebSocket bridge for sACN (E1.31) and Art-Net DMX signal reception",
+  "main": "dmx-bridge.js",
+  "scripts": {
+    "start": "node dmx-bridge.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
+`;
+
+export const bridgeScript = `#!/usr/bin/env node
 /* eslint-disable no-undef */
 /**
  * DMX Signal Bridge — Local UDP-to-WebSocket relay
@@ -10,33 +27,16 @@
  * Browsers cannot open raw UDP sockets, so this bridge is required for live signal
  * reception. The web app connects to this bridge's WebSocket endpoint.
  *
- * ──────────────────────────────────────────────
- *  SETUP
- * ──────────────────────────────────────────────
- *  1. Install Node.js 18+ (https://nodejs.org)
- *  2. Run:  npm install ws
- *  3. Run:  node dmx-bridge.js
- *  4. In the web app, go to Sources → WebSocket Bridge → enter:
- *         ws://<this-machine-IP>:8080
+ * SETUP
+ * 1. Install Node.js 18+ (https://nodejs.org)
+ * 2. Run:  npm install
+ * 3. Run:  npm start
+ * 4. In the web app, go to Connection -> enter: ws://<this-machine-IP>:8080
  *
- *  The bridge listens on:
- *    - UDP 5568  (sACN / E1.31 — joins multicast 239.255.0.0–239.255.255.255)
- *    - UDP 6454  (Art-Net)
- *    - WS  8080  (WebSocket server for the web app)
- *
- * ──────────────────────────────────────────────
- *  FRAME FORMAT (sent to web app)
- * ──────────────────────────────────────────────
- *  {
- *    "type": "dmxFrame",
- *    "protocol": "sACN" | "Art-Net",
- *    "universe": <number>,
- *    "sourceName": "<string>",
- *    "sourceIP": "<ip>",
- *    "channels": [<512 uint8 values>],
- *    "sequence": <number>,
- *    "timestamp": <epoch ms>
- *  }
+ * The bridge listens on:
+ *   - UDP 5568  (sACN / E1.31 — joins multicast 239.255.0.0-239.255.255.255)
+ *   - UDP 6454  (Art-Net)
+ *   - WS  8080  (WebSocket server for the web app)
  */
 
 const dgram = require('dgram');
@@ -49,7 +49,7 @@ const ARTNET_PORT = 6454;
 
 const wsClients = new Set();
 
-// ─── WebSocket Server (minimal implementation over http.Server) ───
+// --- WebSocket Server (minimal implementation over http.Server) ---
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
@@ -68,34 +68,34 @@ server.on('upgrade', (req, socket) => {
     .digest('base64');
 
   socket.write(
-    'HTTP/1.1 101 Switching Protocols\r\n' +
-    'Upgrade: websocket\r\n' +
-    'Connection: Upgrade\r\n' +
-    `Sec-WebSocket-Accept: ${accept}\r\n\r\n`
+    'HTTP/1.1 101 Switching Protocols\\r\\n' +
+    'Upgrade: websocket\\r\\n' +
+    'Connection: Upgrade\\r\\n' +
+    \`Sec-WebSocket-Accept: \${accept}\\r\\n\\r\\n\`
   );
 
   wsClients.add(socket);
-  console.log(`[WS] Client connected (${wsClients.size} total)`);
+  console.log(\`[WS] Client connected (\${wsClients.size} total)\`);
 
   socket.on('close', () => {
     wsClients.delete(socket);
-    console.log(`[WS] Client disconnected (${wsClients.size} total)`);
+    console.log(\`[WS] Client disconnected (\${wsClients.size} total)\`);
   });
   socket.on('error', () => wsClients.delete(socket));
 });
 
 server.listen(WS_PORT, '0.0.0.0', () => {
-  console.log(`╔══════════════════════════════════════════════╗`);
-  console.log(`║   DMX Signal Bridge — Listening              ║`);
-  console.log(`╠══════════════════════════════════════════════╣`);
-  console.log(`║  WebSocket  : ws://0.0.0.0:${WS_PORT}            ║`);
-  console.log(`║  sACN UDP   : ${SACN_PORT} (multicast 239.255.x.x)  ║`);
-  console.log(`║  Art-Net UDP: ${ARTNET_PORT}                        ║`);
-  console.log(`╚══════════════════════════════════════════════╝`);
-  console.log(`\nConnect the web app to: ws://<this-machine-IP>:${WS_PORT}\n`);
+  console.log('========================================');
+  console.log('  DMX Signal Bridge — Listening');
+  console.log('========================================');
+  console.log('  WebSocket  : ws://0.0.0.0:' + WS_PORT);
+  console.log('  sACN UDP   : ' + SACN_PORT + ' (multicast 239.255.x.x)');
+  console.log('  Art-Net UDP: ' + ARTNET_PORT);
+  console.log('========================================');
+  console.log('\\nConnect the web app to: ws://<this-machine-IP>:' + WS_PORT + '\\n');
 });
 
-// ─── WebSocket broadcast ───
+// --- WebSocket broadcast ---
 function broadcast(frame) {
   const json = JSON.stringify(frame);
   let frameBytes;
@@ -128,15 +128,15 @@ function broadcast(frame) {
   }
 }
 
-// ─── sACN (E1.31) Parser ───
+// --- sACN (E1.31) Parser ---
 function parseSacn(buf, rinfo) {
   if (buf.length < 126) return null;
   const preamble = buf.readUInt16LE(0);
   if (preamble !== 0x0010) return null;
   const acnId = buf.toString('ascii', 4, 16);
-  if (acnId !== 'ASC-E1.17\x00\x00\x00') return null;
+  if (acnId !== 'ASC-E1.17\\x00\\x00\\x00') return null;
 
-  const sourceName = buf.toString('ascii', 44, 108).replace(/\x00+$/, '');
+  const sourceName = buf.toString('ascii', 44, 108).replace(/\\x00+$/, '');
   const seq = buf.readUInt8(111);
   const universe = buf.readUInt16BE(113);
 
@@ -156,7 +156,7 @@ function parseSacn(buf, rinfo) {
     type: 'dmxFrame',
     protocol: 'sACN',
     universe,
-    sourceName: sourceName || `sACN ${rinfo.address}`,
+    sourceName: sourceName || ('sACN ' + rinfo.address),
     sourceIP: rinfo.address,
     channels,
     sequence: seq,
@@ -164,11 +164,11 @@ function parseSacn(buf, rinfo) {
   };
 }
 
-// ─── Art-Net Parser ───
+// --- Art-Net Parser ---
 function parseArtNet(buf, rinfo) {
   if (buf.length < 18) return null;
   const id = buf.toString('ascii', 0, 8);
-  if (id !== 'Art-Net\x00') return null;
+  if (id !== 'Art-Net\\x00') return null;
 
   const opcode = buf.readUInt16LE(8);
   if (opcode !== 0x5000) return null;
@@ -187,7 +187,7 @@ function parseArtNet(buf, rinfo) {
     type: 'dmxFrame',
     protocol: 'Art-Net',
     universe,
-    sourceName: `Art-Net ${rinfo.address}`,
+    sourceName: 'Art-Net ' + rinfo.address,
     sourceIP: rinfo.address,
     channels,
     sequence: seq,
@@ -195,7 +195,7 @@ function parseArtNet(buf, rinfo) {
   };
 }
 
-// ─── sACN UDP Socket (multicast) ───
+// --- sACN UDP Socket (multicast) ---
 const sacnSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
 sacnSocket.on('message', (buf, rinfo) => {
@@ -205,22 +205,22 @@ sacnSocket.on('message', (buf, rinfo) => {
 
 sacnSocket.on('listening', () => {
   const iface = sacnSocket.address();
-  console.log(`[sACN] Listening on ${iface.address}:${iface.port}`);
+  console.log('[sACN] Listening on ' + iface.address + ':' + iface.port);
   for (let i = 0; i < 256; i++) {
-    try { sacnSocket.addMembership(`239.255.0.${i}`); } catch (e) {}
+    try { sacnSocket.addMembership('239.255.0.' + i); } catch (e) {}
   }
   for (let i = 1; i < 256; i++) {
-    try { sacnSocket.addMembership(`239.255.${i}.0`); } catch (e) {}
+    try { sacnSocket.addMembership('239.255.' + i + '.0'); } catch (e) {}
   }
 });
 
 sacnSocket.on('error', (err) => {
-  console.error('[sACN] Socket error:', err.message);
+  console.error('[sACN] Socket error: ' + err.message);
 });
 
 sacnSocket.bind(SACN_PORT, '0.0.0.0');
 
-// ─── Art-Net UDP Socket ───
+// --- Art-Net UDP Socket ---
 const artnetSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
 artnetSocket.on('message', (buf, rinfo) => {
@@ -230,20 +230,21 @@ artnetSocket.on('message', (buf, rinfo) => {
 
 artnetSocket.on('listening', () => {
   const iface = artnetSocket.address();
-  console.log(`[Art-Net] Listening on ${iface.address}:${iface.port}`);
+  console.log('[Art-Net] Listening on ' + iface.address + ':' + iface.port);
 });
 
 artnetSocket.on('error', (err) => {
-  console.error('[Art-Net] Socket error:', err.message);
+  console.error('[Art-Net] Socket error: ' + err.message);
 });
 
 artnetSocket.bind(ARTNET_PORT, '0.0.0.0');
 
-// ─── Graceful shutdown ───
+// --- Graceful shutdown ---
 process.on('SIGINT', () => {
-  console.log('\nShutting down bridge...');
+  console.log('\\nShutting down bridge...');
   sacnSocket.close();
   artnetSocket.close();
   server.close();
   process.exit(0);
 });
+`;
