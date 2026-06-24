@@ -30,7 +30,14 @@ function SourceSelect({ label, value, onChange, universes, accent }) {
 
 export default function Compare() {
   const store = useDMXStore();
-  const universes = store.getAllUniverses();
+  const universes = store
+    .getAllUniverses()
+    .slice()
+    .sort((a, b) =>
+      a.protocol === b.protocol
+        ? a.universe - b.universe || a.sourceIP.localeCompare(b.sourceIP)
+        : a.protocol.localeCompare(b.protocol)
+    );
 
   const [keyA, setKeyA] = useState('');
   const [keyB, setKeyB] = useState('');

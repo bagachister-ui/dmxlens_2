@@ -10,7 +10,14 @@ export default function Dashboard() {
   const store = useDMXStore();
   const navigate = useNavigate();
   const [showSnapshotDialog, setShowSnapshotDialog] = useState(false);
-  const universes = store.getAllUniverses();
+  const universes = store
+    .getAllUniverses()
+    .slice()
+    .sort((a, b) =>
+      a.protocol === b.protocol
+        ? a.universe - b.universe || a.sourceIP.localeCompare(b.sourceIP)
+        : a.protocol.localeCompare(b.protocol)
+    );
   const activeCount = universes.filter((u) => u.signalPresent).length;
 
   return (
