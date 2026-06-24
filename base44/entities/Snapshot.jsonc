@@ -1,0 +1,45 @@
+{
+  "name": "Snapshot",
+  "type": "object",
+  "properties": {
+    "show_id": {
+      "type": "string",
+      "description": "ID of the Show this snapshot belongs to"
+    },
+    "name": {
+      "type": "string",
+      "description": "Snapshot name / cue label"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the snapshot was captured"
+    },
+    "universes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string"
+          },
+          "universe": {
+            "type": "integer"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "default": [],
+      "description": "Captured universe channel data"
+    }
+  },
+  "required": [
+    "show_id",
+    "name"
+  ]
+}

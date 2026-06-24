@@ -1,0 +1,25 @@
+{
+  "name": "Show",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Show name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description of the show"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "List of user emails who can access this show in addition to the owner"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
