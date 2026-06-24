@@ -27,7 +27,10 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => dmxStore.takeSnapshot()}
+            onClick={() => {
+              const name = window.prompt('Name this snapshot:', `Snapshot ${dmxStore.snapshots.length + 1}`);
+              if (name !== null) dmxStore.takeSnapshot(name.trim() || undefined);
+            }}
             className="flex items-center gap-2 px-3 py-1.5 bg-[#161920] border border-[#2A2D35] rounded-md text-xs text-gray-300 hover:border-[#00E5FF]/40 hover:text-white transition-colors"
           >
             <Camera className="w-3.5 h-3.5" />

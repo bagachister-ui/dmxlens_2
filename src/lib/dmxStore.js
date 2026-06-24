@@ -206,7 +206,7 @@ class DMXStore {
       timestamp: new Date().toISOString(),
       universes,
     };
-    this.snapshots.unshift(snapshot);
+    this.snapshots.push(snapshot);
     this.log(`Snapshot captured: "${snapshot.name}" (${universes.length} universe${universes.length !== 1 ? 's' : ''})`);
     this._notify();
     return snapshot;

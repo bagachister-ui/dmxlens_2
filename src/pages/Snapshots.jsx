@@ -3,14 +3,15 @@ import { Camera, FileSpreadsheet, Trash2, Inbox } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useDMXStore } from '@/hooks/useDMXStore';
 import { dmxStore } from '@/lib/dmxStore';
-import SnapshotCard from '@/components/dmx/SnapshotCard';
+import SnapshotSpreadsheet from '@/components/dmx/SnapshotSpreadsheet';
 
 export default function Snapshots() {
   const store = useDMXStore();
   const [snapshotName, setSnapshotName] = useState('');
 
   const handleTakeSnapshot = () => {
-    dmxStore.takeSnapshot(snapshotName.trim() || undefined);
+    if (!snapshotName.trim()) return;
+    dmxStore.takeSnapshot(snapshotName.trim());
     setSnapshotName('');
   };
 
@@ -82,7 +83,7 @@ export default function Snapshots() {
             <h2 className="text-sm font-semibold text-white">Capture Snapshot</h2>
           </div>
           <p className="text-xs text-[#6B7280] mb-3">
-            Captures the current DMX values across all universes. Give it a name (optional) or leave blank for auto-naming.
+            Captures the current DMX values across all universes. Enter a name — it's used as the sheet name in the Excel export.
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -95,7 +96,8 @@ export default function Snapshots() {
             />
             <button
               onClick={handleTakeSnapshot}
-              className="flex items-center gap-2 px-4 py-2 bg-[#00E5FF] text-[#0D0F14] rounded-md text-sm font-medium hover:bg-[#00E5FF]/90 transition-colors"
+              disabled={!snapshotName.trim()}
+              className="flex items-center gap-2 px-4 py-2 bg-[#00E5FF] text-[#0D0F14] rounded-md text-sm font-medium hover:bg-[#00E5FF]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Camera className="w-4 h-4" />
               Capture
@@ -128,9 +130,9 @@ export default function Snapshots() {
                 Clear All
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="space-y-3">
               {store.snapshots.map((snap) => (
-                <SnapshotCard
+                <SnapshotSpreadsheet
                   key={snap.id}
                   snapshot={snap}
                   onRename={(id, name) => dmxStore.renameSnapshot(id, name)}
