@@ -131,10 +131,11 @@ function broadcast(frame) {
 // --- sACN (E1.31) Parser ---
 function parseSacn(buf, rinfo) {
   if (buf.length < 126) return null;
-  const preamble = buf.readUInt16LE(0);
+  // Preamble size is big-endian 0x0010
+  const preamble = buf.readUInt16BE(0);
   if (preamble !== 0x0010) return null;
-  const acnId = buf.toString('ascii', 4, 16);
-  if (acnId !== 'ASC-E1.17\\x00\\x00\\x00') return null;
+  // ACN Packet Identifier: "ASC-E1.17" + 3 null bytes (12 bytes at offset 4)
+  if (buf.toString('ascii', 4, 13) !== 'ASC-E1.17') return null;
 
   const sourceName = buf.toString('ascii', 44, 108).replace(/\\x00+$/, '');
   const seq = buf.readUInt8(111);
@@ -167,8 +168,8 @@ function parseSacn(buf, rinfo) {
 // --- Art-Net Parser ---
 function parseArtNet(buf, rinfo) {
   if (buf.length < 18) return null;
-  const id = buf.toString('ascii', 0, 8);
-  if (id !== 'Art-Net\\x00') return null;
+  // Art-Net ID: "Art-Net" + null terminator (8 bytes)
+  if (buf.toString('ascii', 0, 7) !== 'Art-Net') return null;
 
   const opcode = buf.readUInt16LE(8);
   if (opcode !== 0x5000) return null;
