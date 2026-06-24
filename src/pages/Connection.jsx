@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wifi, WifiOff, Copy, Download, Check, Plug, FileCode, Package } from 'lucide-react';
+import { Wifi, WifiOff, Copy, Download, Check, Plug, FileCode, Package, SlidersHorizontal } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
 import { bridgeScript, bridgePackageJson } from '@/lib/bridgeContent';
 
@@ -14,7 +14,14 @@ const steps = [
 export default function Connection() {
   const store = useDMXStore();
   const [wsUrl, setWsUrl] = useState(store.wsUrl || '');
+  const [artnetOffset, setArtnetOffset] = useState(store.artnetOffset);
   const [copied, setCopied] = useState(null);
+
+  const handleOffsetChange = (value) => {
+    const v = parseInt(value) || 0;
+    setArtnetOffset(v);
+    store.setArtnetOffset(v);
+  };
 
   const handleConnect = () => {
     if (wsUrl.trim()) store.connectWebSocket(wsUrl.trim());
@@ -99,6 +106,31 @@ export default function Connection() {
                 Connect
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Art-Net universe offset */}
+        <div className="bg-[#161920] border border-[#2A2D35] rounded-lg p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <SlidersHorizontal className="w-4 h-4 text-[#F59E0B]" />
+            <h2 className="text-sm font-semibold text-white">Art-Net Universe Offset</h2>
+          </div>
+          <p className="text-xs text-[#6B7280] mb-4">
+            Art-Net universes start at 0 by default, while sACN starts at 1. This offset is added to
+            incoming Art-Net universe numbers so they align with your console's labeling. Only affects
+            live Art-Net frames — simulated sources use the universe number you configured.
+          </p>
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-[#9CA3AF] font-mono">Offset</label>
+            <input
+              type="number"
+              value={artnetOffset}
+              onChange={(e) => handleOffsetChange(e.target.value)}
+              className="w-20 bg-[#0D0F14] border border-[#2A2D35] rounded-md px-3 py-1.5 text-sm text-white font-mono text-center focus:outline-none focus:border-[#F59E0B]/50 transition-colors"
+            />
+            <span className="text-xs text-[#6B7280] font-mono">
+              Art-Net U0 → U{0 + (artnetOffset || 0)}, U1 → U{1 + (artnetOffset || 0)}, …
+            </span>
           </div>
         </div>
 

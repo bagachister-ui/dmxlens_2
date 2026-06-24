@@ -18,6 +18,7 @@ class DMXStore {
     this.wsStatus = 'disconnected';
     this.eventLog = [];
     this.maxLogEntries = 80;
+    this.artnetOffset = 1; // Art-Net universes are 0-based; offset to display as 1-based
     this._timeoutTimer = null;
     this._startTimeoutChecker();
   }
@@ -284,14 +285,23 @@ class DMXStore {
     this._notify();
   }
 
+  setArtnetOffset(value) {
+    this.artnetOffset = parseInt(value) || 0;
+    this.log(`Art-Net universe offset set to ${this.artnetOffset > 0 ? '+' : ''}${this.artnetOffset}`);
+    this._notify();
+  }
+
   _processLiveFrame(frame) {
-    const k = this._key(frame.protocol, frame.universe);
+    const displayUniverse = frame.protocol === 'Art-Net'
+      ? frame.universe + this.artnetOffset
+      : frame.universe;
+    const k = this._key(frame.protocol, displayUniverse);
     let u = this.universes.get(k);
     if (!u) {
       u = {
         protocol: frame.protocol,
-        universe: frame.universe,
-        sourceName: frame.sourceName || `Live ${frame.protocol} U${frame.universe}`,
+        universe: displayUniverse,
+        sourceName: frame.sourceName || `Live ${frame.protocol} U${displayUniverse}`,
         sourceIP: frame.sourceIP || 'unknown',
         channels: new Uint8Array(512),
         lastUpdate: 0,
