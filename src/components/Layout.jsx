@@ -102,8 +102,8 @@ export default function Layout() {
                 </>
               ) : (
                 <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
-                  <span className="text-[10px] font-mono text-[#F59E0B]">SIM</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#6B7280]" />
+                  <span className="text-[10px] font-mono text-[#6B7280]">OFFLINE</span>
                 </>
               )}
             </div>

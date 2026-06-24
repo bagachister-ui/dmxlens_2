@@ -25,7 +25,9 @@ export default function Dashboard() {
               {activeCount} active
             </span>
             {' · '}
-            <span className="text-[#F59E0B]">{store.mode === 'live' ? 'LIVE MODE' : 'SIMULATION MODE'}</span>
+            <span className={store.mode === 'live' ? 'text-[#22C55E]' : 'text-[#6B7280]'}>
+              {store.mode === 'live' ? 'LIVE MODE' : 'BRIDGE OFFLINE'}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -50,8 +52,8 @@ export default function Dashboard() {
               </div>
               <h2 className="text-sm font-medium text-gray-300 mb-1">No DMX sources configured</h2>
               <p className="text-xs text-[#6B7280] mb-4 max-w-sm">
-                Add a source to start receiving DMX signal data. The app will simulate
-                realistic sACN or Art-Net traffic until a live WebSocket bridge is connected.
+                Add a source, then connect your local Node.js bridge to start receiving
+                live sACN or Art-Net signal data.
               </p>
               <Link
                 to="/sources"

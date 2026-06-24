@@ -124,13 +124,10 @@ export default function SourcesPanel() {
         ) : (
           sources.map((source) => {
             const uni = dmxStore.getUniverse(source.protocol, source.universe);
-            // A source is only "receiving" real signal when a live bridge is connected
-            // and a frame for this protocol/universe is actually arriving. In simulation
-            // mode the store fabricates frames, so we must not report that as a live signal.
-            const isLive = store.mode === 'live';
-            const live = isLive && (uni?.signalPresent || false);
-            // Only show an IP that was actually detected on a live frame.
-            const liveIP = isLive && uni?.signalPresent ? uni.sourceIP : null;
+            const connected = store.mode === 'live';
+            // signalPresent is only set when a real, IP-matched frame arrives from the bridge.
+            const live = uni?.signalPresent || false;
+            const liveIP = live ? uni.sourceIP : null;
             return (
               <div
                 key={source.id}
@@ -161,10 +158,10 @@ export default function SourcesPanel() {
                       <span className="text-[#22C55E]">
                         ● {source.protocol} signal · {uni.packetRate.toFixed(1)} fps
                       </span>
-                    ) : isLive ? (
+                    ) : connected ? (
                       <span className="text-[#EF4444]">○ No DMX signal from this source</span>
                     ) : (
-                      <span className="text-[#F59E0B]">○ Not connected — connect a bridge to detect live signal</span>
+                      <span className="text-[#6B7280]">○ Bridge not connected</span>
                     )}
                   </div>
                 </div>
