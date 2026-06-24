@@ -6,7 +6,7 @@ import { dmxStore } from '@/lib/dmxStore';
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: LayoutGrid },
-  { label: 'Sources & Connection', path: '/setup', icon: Plug },
+  { label: 'Connection', path: '/setup', icon: Plug },
   { label: 'Compare', path: '/compare', icon: GitCompareArrows },
   { label: 'Snapshots', path: '/snapshots', icon: Camera },
 ];

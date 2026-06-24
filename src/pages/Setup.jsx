@@ -14,7 +14,7 @@ export default function Setup() {
     <div className="h-full flex flex-col">
       <header className="px-6 py-4 border-b border-[#2A2D35] flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-lg font-semibold text-white tracking-tight">Sources &amp; Connection</h1>
+          <h1 className="text-lg font-semibold text-white tracking-tight">Connection</h1>
           <p className="text-xs text-[#6B7280] mt-0.5">
             Configure the DMX sources to monitor and connect a live bridge for real-time signal
           </p>

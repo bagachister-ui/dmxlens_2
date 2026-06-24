@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Pencil, Radio } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { dmxStore } from '@/lib/dmxStore';
+import { useDMXStore } from '@/hooks/useDMXStore';
 import SourceForm from '@/components/dmx/SourceForm';
 import ActivityPulse from '@/components/dmx/ActivityPulse';
+import ConnectionHistoryList from '@/components/dmx/ConnectionHistoryList';
 
 export default function SourcesPanel() {
+  const store = useDMXStore();
   const [sources, setSources] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -121,12 +124,14 @@ export default function SourcesPanel() {
         ) : (
           sources.map((source) => {
             const uni = dmxStore.getUniverse(source.protocol, source.universe);
+            const live = uni?.signalPresent || false;
+            const liveIP = uni?.sourceIP || source.sourceIP;
             return (
               <div
                 key={source.id}
                 className="bg-[#161920] border border-[#2A2D35] rounded-lg p-4 flex items-center gap-4"
               >
-                <ActivityPulse active={uni?.signalPresent || false} />
+                <ActivityPulse active={live} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span
@@ -144,8 +149,16 @@ export default function SourcesPanel() {
                   </div>
                   <div className="text-[10px] text-[#6B7280] font-mono">
                     Universe {source.universe}
-                    {source.sourceIP ? ` · ${source.sourceIP}` : ''}
-                    {uni ? ` · ${uni.packetRate.toFixed(1)} fps` : ''}
+                    {liveIP ? ` · IP ${liveIP}` : ' · no IP detected'}
+                  </div>
+                  <div className="text-[10px] font-mono mt-1">
+                    {live ? (
+                      <span className="text-[#22C55E]">
+                        ● {source.protocol} signal · {uni.packetRate.toFixed(1)} fps
+                      </span>
+                    ) : (
+                      <span className="text-[#EF4444]">○ No DMX signal</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -170,6 +183,14 @@ export default function SourcesPanel() {
           })
         )}
       </div>
+
+      {/* Connection history */}
+      <ConnectionHistoryList
+        history={store.connectionHistory}
+        onConnect={(url) => store.connectWebSocket(url)}
+        onRename={(id, name) => dmxStore.renameConnectionHistory(id, name)}
+        onDelete={(id) => dmxStore.deleteConnectionHistory(id)}
+      />
     </div>
   );
 }
