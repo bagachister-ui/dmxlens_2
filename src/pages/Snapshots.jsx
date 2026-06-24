@@ -183,7 +183,7 @@ export default function Snapshots() {
           <div>
             <h1 className="text-lg font-semibold text-white tracking-tight">Snapshots</h1>
             <p className="text-xs text-[#6B7280] mt-0.5">
-              Open a show to capture, upload, and manage its DMX snapshots
+              Click a show to open it — capture, upload CSV/Excel, and manage its snapshots inside
             </p>
           </div>
           <button
@@ -364,6 +364,7 @@ function ShowCardStatic({ show, currentEmail }) {
             <span className={isOwner ? 'text-[#00E5FF]' : 'text-[#6B7280]'}>
               {isOwner ? 'Owner' : 'Member'}
             </span>
+            <span className="text-[#00E5FF] ml-auto">Open →</span>
           </div>
         </div>
       </div>
