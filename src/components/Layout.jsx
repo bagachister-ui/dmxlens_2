@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Activity, LayoutGrid, Radio, Plug, Camera, GitCompareArrows } from 'lucide-react';
+import { Activity, LayoutGrid, Plug, Camera, GitCompareArrows } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { dmxStore } from '@/lib/dmxStore';
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: LayoutGrid },
-  { label: 'Sources', path: '/sources', icon: Radio },
+  { label: 'Sources & Connection', path: '/setup', icon: Plug },
   { label: 'Compare', path: '/compare', icon: GitCompareArrows },
-  { label: 'Connection', path: '/connection', icon: Plug },
   { label: 'Snapshots', path: '/snapshots', icon: Camera },
 ];
 
@@ -69,7 +68,10 @@ export default function Layout() {
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map((item) => {
-            const active = location.pathname === item.path;
+            const active =
+              location.pathname === item.path ||
+              (item.path === '/setup' &&
+                (location.pathname === '/sources' || location.pathname === '/connection'));
             const Icon = item.icon;
             return (
               <Link
