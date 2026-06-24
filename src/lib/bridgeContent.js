@@ -160,20 +160,29 @@ function parseSacn(buf, rinfo) {
   // ACN Packet Identifier: "ASC-E1.17" + 3 null bytes (12 bytes at offset 4)
   if (buf.toString('ascii', 4, 13) !== 'ASC-E1.17') return null;
 
+  // E1.31 framing layer
   const sourceName = buf.toString('ascii', 44, 108).replace(/\\x00+$/, '');
   const seq = buf.readUInt8(111);
   const universe = buf.readUInt16BE(113);
 
-  const type = buf.readUInt8(123);
-  if (type !== 0x01) return null;
-  const propValCount = buf.readUInt16BE(127);
+  // E1.31 DMP layer (offsets per ANSI E1.31):
+  //   115-116 DMP flags & length      121-122 address increment
+  //   117     DMP vector              123-124 property value count
+  //   118     address & data type     125     START code
+  //   119-120 first property address  126+    DMX channel data
+  const dmpVector = buf.readUInt8(117);
+  if (dmpVector !== 0x02) return null; // VECTOR_DMP_SET_PROPERTY
 
-  const dmxStart = 130;
-  const slotCount = propValCount - 1;
+  const propValCount = buf.readUInt16BE(123); // includes the START code byte
+  const startCode = buf.readUInt8(125);
+  if (startCode !== 0x00) return null; // 0x00 = DMX levels; ignore 0xDD priority etc.
+
+  const dmxStart = 126; // first DMX slot, immediately after START code
+  const slotCount = propValCount - 1; // subtract the START code byte
   const channels = new Array(512).fill(0);
 
   for (let i = 0; i < Math.min(slotCount, 512); i++) {
-    channels[i] = buf.readUInt8(dmxStart + 1 + i);
+    channels[i] = buf.readUInt8(dmxStart + i);
   }
 
   return {

@@ -42,12 +42,35 @@
 const dgram = require('dgram');
 const http = require('http');
 const crypto = require('crypto');
+const os = require('os');
 
 const WS_PORT = 8080;
 const SACN_PORT = 5568;
 const ARTNET_PORT = 6454;
 
 const wsClients = new Set();
+
+// Collect all local IPv4 interface addresses (for multicast joins on every NIC)
+function localIPv4Addresses() {
+  const addrs = [];
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const info of ifaces[name] || []) {
+      if (info.family === 'IPv4' && !info.internal) addrs.push(info.address);
+    }
+  }
+  return addrs;
+}
+
+// Throttled per-protocol "packet received" logging so the console isn't flooded
+const lastLog = { sACN: 0, 'Art-Net': 0 };
+function logPacket(protocol, universe, rinfo) {
+  const now = Date.now();
+  if (now - lastLog[protocol] > 2000) {
+    lastLog[protocol] = now;
+    console.log(`[${protocol}] RX universe ${universe} from ${rinfo.address} (${wsClients.size} ws client${wsClients.size !== 1 ? 's' : ''})`);
+  }
+}
 
 // ─── WebSocket Server (minimal implementation over http.Server) ───
 const server = http.createServer((req, res) => {
@@ -138,32 +161,35 @@ function broadcast(frame) {
 function parseSacn(buf, rinfo) {
   // Root layer
   if (buf.length < 126) return null;
-  const preamble = buf.readUInt16LE(0);
+  // Preamble size is big-endian 0x0010
+  const preamble = buf.readUInt16BE(0);
   if (preamble !== 0x0010) return null;
-  const acnId = buf.toString('ascii', 4, 16);
-  if (acnId !== 'ASC-E1.17\x00\x00\x00') return null;
+  // ACN Packet Identifier: "ASC-E1.17" (followed by null padding) at offset 4
+  if (buf.toString('ascii', 4, 13) !== 'ASC-E1.17') return null;
 
-  // Framing layer (offset 38)
+  // Framing layer
   const sourceName = buf.toString('ascii', 44, 108).replace(/\x00+$/, '');
-  const priority = buf.readUInt8(108);
   const seq = buf.readUInt8(111);
   const universe = buf.readUInt16BE(113);
 
-  // DMP layer (offset 118)
-  const type = buf.readUInt8(123);
-  if (type !== 0x01) return null;
-  const firstAddr = buf.readUInt16BE(124);
-  const inc = buf.readUInt8(126);
-  const propValCount = buf.readUInt16BE(127);
-  const footer = buf.readUInt8(129);
+  // DMP layer (offsets per ANSI E1.31):
+  //   115-116 DMP flags & length      121-122 address increment
+  //   117     DMP vector              123-124 property value count
+  //   118     address & data type     125     START code
+  //   119-120 first property address  126+    DMX channel data
+  const dmpVector = buf.readUInt8(117);
+  if (dmpVector !== 0x02) return null; // VECTOR_DMP_SET_PROPERTY
 
-  // DMX data starts at offset 130 (start code + slot data)
-  const dmxStart = 130;
-  const slotCount = propValCount - 1; // exclude start code
+  const propValCount = buf.readUInt16BE(123); // includes the START code byte
+  const startCode = buf.readUInt8(125);
+  if (startCode !== 0x00) return null; // 0x00 = DMX levels; ignore 0xDD priority etc.
+
+  const dmxStart = 126; // first DMX slot, immediately after START code
+  const slotCount = propValCount - 1; // subtract the START code byte
   const channels = new Array(512).fill(0);
 
   for (let i = 0; i < Math.min(slotCount, 512); i++) {
-    channels[i] = buf.readUInt8(dmxStart + 1 + i); // +1 to skip start code
+    channels[i] = buf.readUInt8(dmxStart + i);
   }
 
   return {
@@ -217,31 +243,33 @@ const sacnSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 sacnSocket.on('message', (buf, rinfo) => {
   const frame = parseSacn(buf, rinfo);
   if (frame) {
+    logPacket('sACN', frame.universe, rinfo);
     broadcast(frame);
   }
 });
 
 sacnSocket.on('listening', () => {
   const iface = sacnSocket.address();
+  sacnSocket.setBroadcast(true);
   console.log(`[sACN] Listening on ${iface.address}:${iface.port}`);
 
-  // Join all sACN multicast groups (239.255.0.0 – 239.255.255.255)
-  // In practice, join the common ones or use addMembership with specific universes
-  for (let i = 0; i < 256; i++) {
-    try {
-      sacnSocket.addMembership(`239.255.0.${i}`);
-    } catch (e) {
-      // Some memberships may fail depending on network config
+  // sACN multicast group for a universe is 239.255.<high byte>.<low byte>.
+  // Join the groups for universes 1-512 on every local interface so the OS
+  // forwards the multicast traffic regardless of which NIC faces the console.
+  const interfaces = localIPv4Addresses();
+  const joinGroup = (group) => {
+    if (interfaces.length === 0) {
+      try { sacnSocket.addMembership(group); } catch (e) {}
+    } else {
+      for (const ifAddr of interfaces) {
+        try { sacnSocket.addMembership(group, ifAddr); } catch (e) {}
+      }
     }
+  };
+  for (let uni = 1; uni <= 512; uni++) {
+    joinGroup(`239.255.${(uni >> 8) & 0xff}.${uni & 0xff}`);
   }
-  // Also join higher universes (239.255.1.x – 239.255.255.x for universes 256+)
-  for (let i = 1; i < 256; i++) {
-    try {
-      sacnSocket.addMembership(`239.255.${i}.0`);
-    } catch (e) {
-      // ignore
-    }
-  }
+  console.log(`[sACN] Joined multicast for universes 1-512 on ${interfaces.length ? interfaces.join(', ') : 'default interface'}`);
 });
 
 sacnSocket.on('error', (err) => {
@@ -256,6 +284,7 @@ const artnetSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 artnetSocket.on('message', (buf, rinfo) => {
   const frame = parseArtNet(buf, rinfo);
   if (frame) {
+    logPacket('Art-Net', frame.universe, rinfo);
     broadcast(frame);
   }
 });
