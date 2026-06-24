@@ -11,6 +11,7 @@ import {
   Save,
   X,
   FileSpreadsheet,
+  Trash2,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { base44 } from '@/api/base44Client';
@@ -92,6 +93,18 @@ export default function Snapshots() {
     } catch (err) {
       alert(`Could not read that file: ${err.message}`);
     }
+    setBusy('');
+  };
+
+  const handleDeleteShow = async (show) => {
+    if (!window.confirm(`Delete "${show.name}" and all of its snapshots? This cannot be undone.`)) return;
+    setBusy(`delShow:${show.id}`);
+    const snaps = await base44.entities.Snapshot.filter({ show_id: show.id });
+    for (const s of snaps) {
+      await base44.entities.Snapshot.delete(s.id);
+    }
+    await base44.entities.Show.delete(show.id);
+    setShows((prev) => prev.filter((s) => s.id !== show.id));
     setBusy('');
   };
 
@@ -259,9 +272,14 @@ export default function Snapshots() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {shows.map((show) => (
-                <button key={show.id} onClick={() => openShow(show)} className="text-left">
-                  <ShowCardStatic show={show} currentEmail={email} />
-                </button>
+                <ShowCardStatic
+                  key={show.id}
+                  show={show}
+                  currentEmail={email}
+                  onOpen={() => openShow(show)}
+                  onDelete={() => handleDeleteShow(show)}
+                  deleting={busy === `delShow:${show.id}`}
+                />
               ))}
             </div>
           )}
@@ -389,30 +407,42 @@ export default function Snapshots() {
   );
 }
 
-// Non-Link version of the show card (used inside a button to open inline)
-function ShowCardStatic({ show, currentEmail }) {
+// Non-Link version of the show card (used to open inline)
+function ShowCardStatic({ show, currentEmail, onOpen, onDelete, deleting }) {
   const isOwner = show.created_by === currentEmail;
   const memberCount = (show.members?.length || 0) + 1;
   return (
-    <div className="block bg-[#161920] border border-[#2A2D35] rounded-lg p-4 hover:border-[#00E5FF]/40 transition-colors h-full">
-      <div className="flex items-start gap-3 min-w-0">
-        <div className="w-9 h-9 rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/20 flex items-center justify-center flex-shrink-0">
-          <FolderOpen className="w-4 h-4 text-[#00E5FF]" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-medium text-white truncate">{show.name}</h3>
-          {show.description && (
-            <p className="text-xs text-[#6B7280] mt-0.5 truncate">{show.description}</p>
-          )}
-          <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-[#6B7280]">
-            <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
-            <span className={isOwner ? 'text-[#00E5FF]' : 'text-[#6B7280]'}>
-              {isOwner ? 'Owner' : 'Member'}
-            </span>
-            <span className="text-[#00E5FF] ml-auto">Open →</span>
+    <div className="relative group block bg-[#161920] border border-[#2A2D35] rounded-lg p-4 hover:border-[#00E5FF]/40 transition-colors h-full">
+      {isOwner && (
+        <button
+          onClick={onDelete}
+          disabled={deleting}
+          title="Delete show"
+          className="absolute top-2 right-2 p-1.5 text-[#6B7280] hover:text-[#EF4444] hover:bg-[#EF4444]/10 rounded transition-colors disabled:opacity-40 z-10"
+        >
+          {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+        </button>
+      )}
+      <button onClick={onOpen} className="text-left w-full">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/20 flex items-center justify-center flex-shrink-0">
+            <FolderOpen className="w-4 h-4 text-[#00E5FF]" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-white truncate pr-6">{show.name}</h3>
+            {show.description && (
+              <p className="text-xs text-[#6B7280] mt-0.5 truncate">{show.description}</p>
+            )}
+            <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-[#6B7280]">
+              <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+              <span className={isOwner ? 'text-[#00E5FF]' : 'text-[#6B7280]'}>
+                {isOwner ? 'Owner' : 'Member'}
+              </span>
+              <span className="text-[#00E5FF] ml-auto">Open →</span>
+            </div>
           </div>
         </div>
-      </div>
+      </button>
     </div>
   );
 }
