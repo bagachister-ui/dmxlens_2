@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Pencil, Radio, Wifi, WifiOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Trash2, Pencil, Radio, Plug, ArrowRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { dmxStore } from '@/lib/dmxStore';
 import SourceForm from '@/components/dmx/SourceForm';
@@ -9,7 +10,6 @@ export default function Sources() {
   const [sources, setSources] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [wsUrl, setWsUrl] = useState('');
   const [loading, setLoading] = useState(true);
 
   const loadSources = async () => {
@@ -69,16 +69,6 @@ export default function Sources() {
     const updated = sources.filter((s) => s.id !== source.id);
     setSources(updated);
     dmxStore.setSources(updated);
-  };
-
-  const handleConnect = () => {
-    if (wsUrl.trim()) {
-      dmxStore.connectWebSocket(wsUrl.trim());
-    }
-  };
-
-  const handleDisconnect = () => {
-    dmxStore.disconnectWebSocket();
   };
 
   return (
@@ -187,58 +177,22 @@ export default function Sources() {
             )}
           </div>
 
-          {/* WebSocket bridge connection */}
-          <div className="bg-[#161920] border border-[#2A2D35] rounded-lg p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Wifi className="w-4 h-4 text-[#00E5FF]" />
-              <h2 className="text-sm font-semibold text-white">WebSocket Bridge</h2>
-              <span
-                className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wider ml-auto ${
-                  dmxStore.wsStatus === 'connected'
-                    ? 'bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20'
-                    : dmxStore.wsStatus === 'connecting'
-                    ? 'bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20'
-                    : dmxStore.wsStatus === 'error'
-                    ? 'bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20'
-                    : 'bg-[#2A2D35] text-[#6B7280]'
-                }`}
-              >
-                {dmxStore.wsStatus}
-              </span>
+          {/* Live connection hint — connection is managed on the Connection page */}
+          <Link
+            to="/connection"
+            className="flex items-center gap-3 bg-[#161920] border border-[#2A2D35] rounded-lg p-4 hover:border-[#00E5FF]/40 transition-colors group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/20 flex items-center justify-center flex-shrink-0">
+              <Plug className="w-4 h-4 text-[#00E5FF]" />
             </div>
-            <p className="text-xs text-[#6B7280] mb-4">
-              Connect to an external UDP-to-WebSocket bridge running on your lighting network.
-              The bridge listens on UDP port 5568 (sACN) and 6454 (Art-Net), parses packets,
-              and forwards structured DMX frames to this app in real time.
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={wsUrl}
-                onChange={(e) => setWsUrl(e.target.value)}
-                placeholder="ws://10.0.1.50:8080"
-                className="flex-1 bg-[#0D0F14] border border-[#2A2D35] rounded-md px-3 py-2 text-sm text-white font-mono placeholder-[#4B5563] focus:outline-none focus:border-[#00E5FF]/50 transition-colors"
-              />
-              {dmxStore.wsStatus === 'connected' ? (
-                <button
-                  onClick={handleDisconnect}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/30 rounded-md text-sm hover:bg-[#EF4444]/20 transition-colors"
-                >
-                  <WifiOff className="w-4 h-4" />
-                  Disconnect
-                </button>
-              ) : (
-                <button
-                  onClick={handleConnect}
-                  disabled={!wsUrl.trim() || dmxStore.wsStatus === 'connecting'}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#00E5FF] text-[#0D0F14] rounded-md text-sm font-medium hover:bg-[#00E5FF]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Wifi className="w-4 h-4" />
-                  Connect
-                </button>
-              )}
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-white font-medium">Connect a live signal</div>
+              <div className="text-xs text-[#6B7280] mt-0.5">
+                Set up and manage the WebSocket bridge on the Connection page for real-time sACN & Art-Net.
+              </div>
             </div>
-          </div>
+            <ArrowRight className="w-4 h-4 text-[#6B7280] group-hover:text-[#00E5FF] transition-colors flex-shrink-0" />
+          </Link>
         </div>
       </div>
     </div>

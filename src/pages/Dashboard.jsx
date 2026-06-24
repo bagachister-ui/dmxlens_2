@@ -1,12 +1,15 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Radio, Camera } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
-import { dmxStore } from '@/lib/dmxStore';
 import UniverseCard from '@/components/dmx/UniverseCard';
 import EventLog from '@/components/dmx/EventLog';
+import SaveSnapshotDialog from '@/components/dmx/SaveSnapshotDialog';
 
 export default function Dashboard() {
   const store = useDMXStore();
+  const navigate = useNavigate();
+  const [showSnapshotDialog, setShowSnapshotDialog] = useState(false);
   const universes = store.getAllUniverses();
   const activeCount = universes.filter((u) => u.signalPresent).length;
 
@@ -27,10 +30,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              const name = window.prompt('Name this snapshot:', `Snapshot ${dmxStore.snapshots.length + 1}`);
-              if (name !== null) dmxStore.takeSnapshot(name.trim() || undefined);
-            }}
+            onClick={() => setShowSnapshotDialog(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-[#161920] border border-[#2A2D35] rounded-md text-xs text-gray-300 hover:border-[#00E5FF]/40 hover:text-white transition-colors"
           >
             <Camera className="w-3.5 h-3.5" />
@@ -85,6 +85,16 @@ export default function Dashboard() {
           <EventLog entries={store.eventLog} />
         </div>
       </div>
+
+      {showSnapshotDialog && (
+        <SaveSnapshotDialog
+          onClose={() => setShowSnapshotDialog(false)}
+          onSaved={() => {
+            setShowSnapshotDialog(false);
+            navigate('/snapshots');
+          }}
+        />
+      )}
     </div>
   );
 }
