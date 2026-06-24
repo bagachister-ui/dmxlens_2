@@ -312,6 +312,7 @@ class DMXStore {
       }
     }
     this.wsUrl = url;
+    this._loggedFirstFrame = false;
     this.addConnectionHistory(url);
     this.wsStatus = 'connecting';
     this.log(`Connecting to WebSocket bridge: ${url}`);
@@ -330,6 +331,10 @@ class DMXStore {
       this.ws.onmessage = (event) => {
         try {
           const frame = JSON.parse(event.data);
+          if (frame.type === 'dmxFrame' && !this._loggedFirstFrame) {
+            this._loggedFirstFrame = true;
+            this.log(`Live frame received — ${frame.protocol} U${frame.universe}`, 'info');
+          }
           this._processLiveFrame(frame);
         } catch (e) {
           this.log(`Frame parse error: ${e.message}`, 'error');

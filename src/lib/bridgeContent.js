@@ -42,12 +42,35 @@ export const bridgeScript = `#!/usr/bin/env node
 const dgram = require('dgram');
 const http = require('http');
 const crypto = require('crypto');
+const os = require('os');
 
 const WS_PORT = 8080;
 const SACN_PORT = 5568;
 const ARTNET_PORT = 6454;
 
 const wsClients = new Set();
+
+// Collect all local IPv4 interface addresses (for multicast joins on every NIC)
+function localIPv4Addresses() {
+  const addrs = [];
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const info of ifaces[name] || []) {
+      if (info.family === 'IPv4' && !info.internal) addrs.push(info.address);
+    }
+  }
+  return addrs;
+}
+
+// Throttled per-protocol "packet received" logging so the console isn't flooded
+const lastLog = { sACN: 0, 'Art-Net': 0 };
+function logPacket(protocol, universe, rinfo) {
+  const now = Date.now();
+  if (now - lastLog[protocol] > 2000) {
+    lastLog[protocol] = now;
+    console.log(\`[\${protocol}] RX universe \${universe} from \${rinfo.address} (\${wsClients.size} ws client\${wsClients.size !== 1 ? 's' : ''})\`);
+  }
+}
 
 // --- WebSocket Server (minimal implementation over http.Server) ---
 const server = http.createServer((req, res) => {
@@ -201,18 +224,35 @@ const sacnSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
 sacnSocket.on('message', (buf, rinfo) => {
   const frame = parseSacn(buf, rinfo);
-  if (frame) broadcast(frame);
+  if (frame) {
+    logPacket('sACN', frame.universe, rinfo);
+    broadcast(frame);
+  }
 });
 
 sacnSocket.on('listening', () => {
   const iface = sacnSocket.address();
+  sacnSocket.setBroadcast(true);
   console.log('[sACN] Listening on ' + iface.address + ':' + iface.port);
-  for (let i = 0; i < 256; i++) {
-    try { sacnSocket.addMembership('239.255.0.' + i); } catch (e) {}
+
+  // sACN multicast group for a universe is 239.255.<high byte>.<low byte>.
+  // Join the groups for universes 1-512 on every local interface so the OS
+  // forwards the multicast traffic regardless of which NIC faces the console.
+  const interfaces = localIPv4Addresses();
+  const joinGroup = (group) => {
+    if (interfaces.length === 0) {
+      try { sacnSocket.addMembership(group); } catch (e) {}
+    } else {
+      for (const ifAddr of interfaces) {
+        try { sacnSocket.addMembership(group, ifAddr); } catch (e) {}
+      }
+    }
+  };
+  for (let uni = 1; uni <= 512; uni++) {
+    joinGroup('239.255.' + ((uni >> 8) & 0xff) + '.' + (uni & 0xff));
   }
-  for (let i = 1; i < 256; i++) {
-    try { sacnSocket.addMembership('239.255.' + i + '.0'); } catch (e) {}
-  }
+  console.log('[sACN] Joined multicast for universes 1-512 on ' +
+    (interfaces.length ? interfaces.join(', ') : 'default interface'));
 });
 
 sacnSocket.on('error', (err) => {
@@ -226,7 +266,10 @@ const artnetSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
 artnetSocket.on('message', (buf, rinfo) => {
   const frame = parseArtNet(buf, rinfo);
-  if (frame) broadcast(frame);
+  if (frame) {
+    logPacket('Art-Net', frame.universe, rinfo);
+    broadcast(frame);
+  }
 });
 
 artnetSocket.on('listening', () => {
