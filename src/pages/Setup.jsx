@@ -1,5 +1,5 @@
 import { useDMXStore } from '@/hooks/useDMXStore';
-import SourcesPanel from '@/components/dmx/SourcesPanel';
+import DetectedSources from '@/components/dmx/DetectedSources';
 import ConnectionPanel from '@/components/dmx/ConnectionPanel';
 
 export default function Setup() {
@@ -16,7 +16,7 @@ export default function Setup() {
         <div>
           <h1 className="text-lg font-semibold text-white tracking-tight">Connection</h1>
           <p className="text-xs text-[#6B7280] mt-0.5">
-            Configure the DMX sources to monitor and connect a live bridge for real-time signal
+            Connect a live bridge — sACN and Art-Net sources are detected automatically
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -29,9 +29,9 @@ export default function Setup() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto items-start">
-          {/* Left column — sources */}
+          {/* Left column — auto-detected sources */}
           <div>
-            <SourcesPanel />
+            <DetectedSources />
           </div>
           {/* Right column — live connection */}
           <div>

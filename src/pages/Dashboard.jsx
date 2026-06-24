@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Radio, Camera } from 'lucide-react';
+import { Plug, Radio, Camera } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
 import UniverseCard from '@/components/dmx/UniverseCard';
 import EventLog from '@/components/dmx/EventLog';
@@ -20,7 +20,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-lg font-semibold text-white tracking-tight">Universe Overview</h1>
           <p className="text-xs text-[#6B7280] mt-0.5">
-            {universes.length} universe{universes.length !== 1 ? 's' : ''} configured ·{' '}
+            {universes.length} source{universes.length !== 1 ? 's' : ''} detected ·{' '}
             <span className={activeCount > 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}>
               {activeCount} active
             </span>
@@ -50,24 +50,24 @@ export default function Dashboard() {
               <div className="w-16 h-16 rounded-2xl bg-[#161920] border border-[#2A2D35] flex items-center justify-center mb-4">
                 <Radio className="w-7 h-7 text-[#4B5563]" />
               </div>
-              <h2 className="text-sm font-medium text-gray-300 mb-1">No DMX sources configured</h2>
+              <h2 className="text-sm font-medium text-gray-300 mb-1">No DMX signal detected</h2>
               <p className="text-xs text-[#6B7280] mb-4 max-w-sm">
-                Add a source, then connect your local Node.js bridge to start receiving
-                live sACN or Art-Net signal data.
+                Connect your local Node.js bridge — any sACN or Art-Net source on your
+                network will be detected and appear here automatically.
               </p>
               <Link
-                to="/sources"
+                to="/setup"
                 className="flex items-center gap-2 px-4 py-2 bg-[#00E5FF] text-[#0D0F14] rounded-md text-sm font-medium hover:bg-[#00E5FF]/90 transition-colors"
               >
-                <Plus className="w-4 h-4" />
-                Add First Source
+                <Plug className="w-4 h-4" />
+                Connect Bridge
               </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {universes.map((u) => (
                 <UniverseCard
-                  key={`${u.protocol}-${u.universe}`}
+                  key={`${u.protocol}-${u.universe}-${u.sourceIP}`}
                   universe={u}
                 />
               ))}

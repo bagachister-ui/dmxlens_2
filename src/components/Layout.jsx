@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { Activity, LayoutGrid, Plug, Camera, GitCompareArrows } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
-import { dmxStore } from '@/lib/dmxStore';
+import { useDMXStore } from '@/hooks/useDMXStore';
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: LayoutGrid },
@@ -13,40 +11,8 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [sourceCount, setSourceCount] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const sources = await base44.entities.DMXSource.list();
-        if (mounted) {
-          setSourceCount(sources.length);
-          dmxStore.setSources(sources);
-        }
-      } catch (e) {
-        // Entity may not be accessible in public mode — app still works with local state
-        console.error('Failed to load sources:', e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#0D0F14]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-[#2A2D35] border-t-[#00E5FF] rounded-full animate-spin" />
-          <span className="text-xs text-[#6B7280] font-mono tracking-wider">INITIALIZING DMX ENGINE</span>
-        </div>
-      </div>
-    );
-  }
+  const store = useDMXStore();
+  const sourceCount = store.getAllUniverses().length;
 
   return (
     <div className="flex h-screen bg-[#0D0F14] text-gray-100 overflow-hidden">
@@ -95,7 +61,7 @@ export default function Layout() {
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-[#6B7280] font-mono tracking-wider uppercase">Mode</span>
             <div className="flex items-center gap-1.5">
-              {dmxStore.mode === 'live' ? (
+              {store.mode === 'live' ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
                   <span className="text-[10px] font-mono text-[#22C55E]">LIVE</span>

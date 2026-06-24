@@ -9,15 +9,16 @@ export default function UniverseDetail() {
   const navigate = useNavigate();
   const store = useDMXStore();
 
-  const uni = store.getUniverse(protocol, parseInt(universe));
+  const ip = new URLSearchParams(window.location.search).get('ip');
+  const uni = store.getUniverse(protocol, parseInt(universe), ip ?? undefined);
 
   if (!uni) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <Radio className="w-10 h-10 text-[#4B5563] mb-3" />
-        <p className="text-sm text-gray-300 mb-1">Universe not found</p>
+        <p className="text-sm text-gray-300 mb-1">Source not detected</p>
         <p className="text-xs text-[#6B7280] mb-4">
-          {protocol} U{universe} is not configured
+          {protocol} U{universe} is no longer sending signal
         </p>
         <Link
           to="/"

@@ -16,10 +16,10 @@ function SourceSelect({ label, value, onChange, universes, accent }) {
       >
         <option value="">Select a source…</option>
         {universes.map((u) => {
-          const key = `${u.protocol}:${u.universe}`;
+          const key = `${u.protocol}:${u.universe}:${u.sourceIP}`;
           return (
             <option key={key} value={key}>
-              {u.protocol} · U{u.universe} · {u.sourceName}
+              {u.protocol} · U{u.universe} · {u.sourceIP || u.sourceName}
             </option>
           );
         })}
@@ -36,7 +36,7 @@ export default function Compare() {
   const [keyB, setKeyB] = useState('');
   const [diffOnly, setDiffOnly] = useState(false);
 
-  const findU = (key) => universes.find((u) => `${u.protocol}:${u.universe}` === key);
+  const findU = (key) => universes.find((u) => `${u.protocol}:${u.universe}:${u.sourceIP}` === key);
   const uA = findU(keyA);
   const uB = findU(keyB);
 
@@ -76,7 +76,7 @@ export default function Compare() {
       {/* Selectors */}
       <div className="px-6 py-4 border-b border-[#2A2D35] flex-shrink-0">
         {universes.length === 0 ? (
-          <p className="text-xs text-[#6B7280]">No sources available yet — add sources or connect the live bridge first.</p>
+          <p className="text-xs text-[#6B7280]">No sources detected yet — connect the live bridge so sources appear automatically.</p>
         ) : (
           <div className="flex items-end gap-3 max-w-2xl">
             <SourceSelect label="Source A" value={keyA} onChange={setKeyA} universes={universes} accent="#00E5FF" />

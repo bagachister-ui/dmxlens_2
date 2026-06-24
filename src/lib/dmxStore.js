@@ -1,12 +1,14 @@
 // DMX Signal Store — singleton that manages live DMX data from a WebSocket bridge.
 // Connects to an external WebSocket bridge that forwards parsed sACN / Art-Net UDP packets.
-// There is NO simulation: a universe only shows signal when real frames arrive from the bridge.
+//
+// Sources are NOT configured manually. Every distinct sender that the bridge forwards
+// — identified by protocol + universe + source IP — is auto-discovered and tracked.
+// A source only exists (and shows signal) because real frames actually arrived for it.
 
 const SIGNAL_TIMEOUT_MS = 3000;
 
 class DMXStore {
   constructor() {
-    this.sources = [];
     this.universes = new Map();
     this.listeners = new Set();
     this.mode = 'offline'; // 'offline' until a bridge is connected, then 'live'
@@ -22,8 +24,10 @@ class DMXStore {
     this._startTimeoutChecker();
   }
 
-  _key(protocol, universe) {
-    return `${protocol}:${universe}`;
+  // A discovered source is uniquely a (protocol, universe, sender IP) combination.
+  // Two consoles can output the same universe from different IPs — both are tracked.
+  _key(protocol, universe, ip) {
+    return `${protocol}:${universe}:${ip || ''}`;
   }
 
   _startTimeoutChecker() {
@@ -31,10 +35,12 @@ class DMXStore {
     this._timeoutTimer = setInterval(() => {
       const now = Date.now();
       let changed = false;
-      for (const u of this.universes.values()) {
-        if (u.signalPresent && now - u.lastSeen > SIGNAL_TIMEOUT_MS) {
-          u.signalPresent = false;
-          this.log(`Signal lost — ${u.protocol} U${u.universe} (${u.sourceName})`, 'warning');
+      for (const [k, u] of Array.from(this.universes.entries())) {
+        if (now - u.lastSeen > SIGNAL_TIMEOUT_MS) {
+          // No frame for this sender in the timeout window — it's gone offline.
+          // Remove it entirely so the detected-sources list only shows live senders.
+          this.universes.delete(k);
+          this.log(`Source lost — ${u.protocol} U${u.universe} (${u.sourceIP})`, 'warning');
           changed = true;
         }
       }
@@ -42,51 +48,15 @@ class DMXStore {
     }, 1000);
   }
 
-  // Create an empty (no-signal) universe entry for a configured source so it
-  // can be displayed/navigated even before any live frame arrives.
-  _initUniverse(source) {
-    const k = this._key(source.protocol, source.universe);
-    if (!this.universes.has(k)) {
-      this.universes.set(k, {
-        protocol: source.protocol,
-        universe: source.universe,
-        sourceName: source.name,
-        sourceIP: '',
-        configuredIP: source.sourceIP || '',
-        channels: new Uint8Array(512),
-        lastUpdate: 0,
-        lastSeen: 0,
-        frameCount: 0,
-        packetRate: 0,
-        rateWindow: [],
-        sequence: 0,
-        signalPresent: false,
-      });
-    } else {
-      const u = this.universes.get(k);
-      u.sourceName = source.name;
-      u.configuredIP = source.sourceIP || '';
+  // Look up a specific discovered source. IP is required to disambiguate when
+  // multiple senders share a universe; if omitted, returns the first match.
+  getUniverse(protocol, universe, ip) {
+    if (ip !== undefined) {
+      return this.universes.get(this._key(protocol, universe, ip));
     }
-  }
-
-  setSources(sources) {
-    const activeKeys = new Set(sources.map((s) => this._key(s.protocol, s.universe)));
-
-    // Drop universe entries for sources that no longer exist
-    for (const k of Array.from(this.universes.keys())) {
-      if (!activeKeys.has(k)) this.universes.delete(k);
-    }
-
-    for (const s of sources) {
-      this._initUniverse(s);
-    }
-
-    this.sources = sources;
-    this._notify();
-  }
-
-  getUniverse(protocol, universe) {
-    return this.universes.get(this._key(protocol, universe));
+    return this.getAllUniverses().find(
+      (u) => u.protocol === protocol && u.universe === Number(universe)
+    );
   }
 
   getAllUniverses() {
@@ -288,16 +258,17 @@ class DMXStore {
     const displayUniverse = frame.protocol === 'Art-Net'
       ? frame.universe + this.artnetOffset
       : frame.universe;
-    const k = this._key(frame.protocol, displayUniverse);
+    const frameIP = frame.sourceIP || '';
+    const k = this._key(frame.protocol, displayUniverse, frameIP);
     let u = this.universes.get(k);
+
     if (!u) {
-      // A frame arrived for a universe that isn't configured as a source — track it anyway.
+      // First frame from this sender — auto-discover it as a new source.
       u = {
         protocol: frame.protocol,
         universe: displayUniverse,
-        sourceName: frame.sourceName || `Live ${frame.protocol} U${displayUniverse}`,
-        sourceIP: '',
-        configuredIP: '',
+        sourceName: frame.sourceName || `${frame.protocol} ${frameIP || 'unknown'}`,
+        sourceIP: frameIP,
         channels: new Uint8Array(512),
         lastUpdate: 0,
         lastSeen: 0,
@@ -308,22 +279,14 @@ class DMXStore {
         signalPresent: false,
       };
       this.universes.set(k, u);
+      this.log(`New source detected — ${u.protocol} U${displayUniverse} from ${frameIP || 'unknown'}`, 'info');
     }
 
-    const frameIP = frame.sourceIP || '';
-
-    // If this source was configured with a specific IP, only accept frames whose
-    // sender IP matches it. This prevents a wrong/random configured IP from being
-    // reported as online just because some other device sends on the same universe.
-    if (u.configuredIP && frameIP && u.configuredIP !== frameIP) {
-      return;
-    }
-
+    if (frame.sourceName) u.sourceName = frame.sourceName;
     if (frame.channels && frame.channels.length === 512) {
       u.channels = new Uint8Array(frame.channels);
     }
 
-    u.sourceIP = frameIP || u.sourceIP;
     u.sequence = frame.sequence ?? (u.sequence + 1) % 256;
     u.frameCount++;
     u.lastUpdate = Date.now();
