@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Radio, Wifi, WifiOff } from 'lucide-react';
 import { dmxStore } from '@/lib/dmxStore';
 import { useDMXStore } from '@/hooks/useDMXStore';
+import { sortUniverses, universeKey } from '@/lib/dmxUtils';
 import ConnectionHistoryList from '@/components/dmx/ConnectionHistoryList';
 
 const PROTOCOLS = ['sACN', 'Art-Net'];
@@ -9,14 +10,7 @@ const PROTOCOLS = ['sACN', 'Art-Net'];
 export default function DetectedSources() {
   const store = useDMXStore();
   const connected = store.mode === 'live';
-  const sources = store
-    .getAllUniverses()
-    .slice()
-    .sort((a, b) =>
-      a.protocol === b.protocol
-        ? a.universe - b.universe || a.sourceIP.localeCompare(b.sourceIP)
-        : a.protocol.localeCompare(b.protocol)
-    );
+  const sources = sortUniverses(store.getAllUniverses());
 
   return (
     <div className="space-y-4">
@@ -85,7 +79,7 @@ export default function DetectedSources() {
                 <div className="flex flex-wrap gap-1.5">
                   {protoSources.map((u) => (
                     <Link
-                      key={`${u.protocol}:${u.universe}:${u.sourceIP}`}
+                      key={universeKey(u)}
                       to={`/universe/${u.protocol}/${u.universe}?ip=${encodeURIComponent(u.sourceIP)}`}
                       title={`${u.sourceName} · ${u.sourceIP || 'unknown IP'} · ${u.packetRate.toFixed(1)} fps`}
                       className="flex items-center gap-1.5 bg-[#0D0F14] border border-[#2A2D35] rounded-md px-2 py-1 hover:border-[#00E5FF]/40 transition-colors"

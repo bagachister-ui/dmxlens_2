@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plug, Radio, Camera } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
+import { sortUniverses, universeKey } from '@/lib/dmxUtils';
 import UniverseCard from '@/components/dmx/UniverseCard';
 import EventLog from '@/components/dmx/EventLog';
 import SaveSnapshotDialog from '@/components/dmx/SaveSnapshotDialog';
@@ -10,14 +11,7 @@ export default function Dashboard() {
   const store = useDMXStore();
   const navigate = useNavigate();
   const [showSnapshotDialog, setShowSnapshotDialog] = useState(false);
-  const universes = store
-    .getAllUniverses()
-    .slice()
-    .sort((a, b) =>
-      a.protocol === b.protocol
-        ? a.universe - b.universe || a.sourceIP.localeCompare(b.sourceIP)
-        : a.protocol.localeCompare(b.protocol)
-    );
+  const universes = sortUniverses(store.getAllUniverses());
   const activeCount = universes.filter((u) => u.signalPresent).length;
 
   return (
@@ -73,10 +67,7 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {universes.map((u) => (
-                <UniverseCard
-                  key={`${u.protocol}-${u.universe}-${u.sourceIP}`}
-                  universe={u}
-                />
+                <UniverseCard key={universeKey(u)} universe={u} />
               ))}
             </div>
           )}

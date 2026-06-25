@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GitCompareArrows, ArrowLeftRight, Filter } from 'lucide-react';
 import { useDMXStore } from '@/hooks/useDMXStore';
+import { sortUniverses, universeKey } from '@/lib/dmxUtils';
 import CompareGrid from '@/components/dmx/CompareGrid';
 
 function SourceSelect({ label, value, onChange, universes, accent }) {
@@ -16,7 +17,7 @@ function SourceSelect({ label, value, onChange, universes, accent }) {
       >
         <option value="">Select a source…</option>
         {universes.map((u) => {
-          const key = `${u.protocol}:${u.universe}:${u.sourceIP}`;
+          const key = universeKey(u);
           return (
             <option key={key} value={key}>
               {u.protocol} · U{u.universe} · {u.sourceIP || u.sourceName}
@@ -30,20 +31,13 @@ function SourceSelect({ label, value, onChange, universes, accent }) {
 
 export default function Compare() {
   const store = useDMXStore();
-  const universes = store
-    .getAllUniverses()
-    .slice()
-    .sort((a, b) =>
-      a.protocol === b.protocol
-        ? a.universe - b.universe || a.sourceIP.localeCompare(b.sourceIP)
-        : a.protocol.localeCompare(b.protocol)
-    );
+  const universes = sortUniverses(store.getAllUniverses());
 
   const [keyA, setKeyA] = useState('');
   const [keyB, setKeyB] = useState('');
   const [diffOnly, setDiffOnly] = useState(false);
 
-  const findU = (key) => universes.find((u) => `${u.protocol}:${u.universe}:${u.sourceIP}` === key);
+  const findU = (key) => universes.find((u) => universeKey(u) === key);
   const uA = findU(keyA);
   const uB = findU(keyB);
 

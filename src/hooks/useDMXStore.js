@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { dmxStore } from '@/lib/dmxStore';
 
 // Subscribes to the DMX store and triggers re-renders at a throttled rate (~15fps)
-// so the UI stays responsive while the simulation runs at 44fps internally.
+// so the UI stays responsive while live frames arrive from the bridge.
 export function useDMXStore() {
   const [, setTick] = useState(0);
 
@@ -28,13 +28,8 @@ export function useDMXStore() {
 
     const unsub = dmxStore.subscribe(onNotify);
 
-    // Periodic poll catches simulation frame updates and timeout state changes
-    // at ~12fps — smooth enough for live DMX grid display without excessive re-renders
-    const poll = setInterval(() => setTick((t) => t + 1), 80);
-
     return () => {
       unsub();
-      clearInterval(poll);
       if (throttleId) clearTimeout(throttleId);
     };
   }, []);
