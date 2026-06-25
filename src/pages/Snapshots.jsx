@@ -40,15 +40,17 @@ export default function Snapshots() {
   const [savingMembers, setSavingMembers] = useState(false);
   const [busy, setBusy] = useState('');
 
-  const isOwner = activeShow && activeShow.created_by === email;
+  const isOwner =
+    activeShow && (activeShow.created_by || '').toLowerCase() === (email || '').toLowerCase();
 
   const loadShows = () =>
     progressBus.track(async () => {
       const me = await base44.auth.me();
       setEmail(me.email);
       const all = await base44.entities.Show.list('-updated_date');
+      const myEmail = (me.email || '').toLowerCase();
       const visible = all.filter(
-        (s) => s.created_by === me.email || (s.members || []).includes(me.email.toLowerCase())
+        (s) => (s.created_by || '').toLowerCase() === myEmail || (s.members || []).includes(myEmail)
       );
       setShows(visible);
       setLoadingShows(false);
@@ -422,7 +424,7 @@ export default function Snapshots() {
 
 // Non-Link version of the show card (used to open inline)
 function ShowCardStatic({ show, currentEmail, onOpen, onDelete, deleting }) {
-  const isOwner = show.created_by === currentEmail;
+  const isOwner = (show.created_by || '').toLowerCase() === (currentEmail || '').toLowerCase();
   const memberCount = (show.members?.length || 0) + 1;
   return (
     <div className="relative group block bg-[#161920] border border-[#2A2D35] rounded-lg p-4 hover:border-[#00E5FF]/40 transition-colors h-full">

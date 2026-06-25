@@ -20,8 +20,9 @@ export default function SaveSnapshotDialog({ onClose, onSaved }) {
       const me = await base44.auth.me();
       setEmail(me.email);
       const all = await base44.entities.Show.list('-updated_date');
+      const myEmail = (me.email || '').toLowerCase();
       const visible = all.filter(
-        (s) => s.created_by === me.email || (s.members || []).includes(me.email.toLowerCase())
+        (s) => (s.created_by || '').toLowerCase() === myEmail || (s.members || []).includes(myEmail)
       );
       setShows(visible);
       if (visible.length > 0) setSelectedShowId(visible[0].id);
