@@ -121,12 +121,8 @@ server.listen(WS_PORT, '0.0.0.0', () => {
 // ─── WebSocket broadcast ───
 function broadcast(frame) {
   const json = JSON.stringify(frame);
-  const payload = Buffer.alloc(2 + json.length);
-  payload[0] = 0x81; // FIN + text frame
-  payload[1] = json.length; // (no masking from server, assume < 126 bytes... for safety use extended)
-  payload.write(json, 2);
 
-  // Handle frames > 125 bytes properly
+  // Build the WebSocket text frame, sizing the length field per RFC 6455.
   let frameBytes;
   const len = Buffer.byteLength(json);
   if (len < 126) {
