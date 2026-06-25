@@ -51,8 +51,10 @@ export default function Compare() {
   // Count differing channels
   let diffCount = 0;
   if (uA && uB) {
+    const a = uA.channels || [];
+    const b = uB.channels || [];
     for (let i = 0; i < 512; i++) {
-      if ((uA.channels[i] || 0) !== (uB.channels[i] || 0)) diffCount++;
+      if ((a[i] || 0) !== (b[i] || 0)) diffCount++;
     }
   }
 
