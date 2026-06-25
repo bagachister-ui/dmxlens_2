@@ -56,7 +56,7 @@ export default function ConnectionPanel() {
           <h2 className="text-sm font-semibold text-white">WebSocket Bridge URL</h2>
         </div>
         <p className="text-xs text-[#6B7280] mb-4">
-          Enter the WebSocket URL of your running bridge. The app switches from simulation to live mode automatically.
+          Enter the WebSocket URL of your running bridge to start receiving live DMX data.
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -96,8 +96,7 @@ export default function ConnectionPanel() {
         </div>
         <p className="text-xs text-[#6B7280] mb-4">
           Art-Net universes start at 0 by default, while sACN starts at 1. This offset is added to
-          incoming Art-Net universe numbers so they align with your console's labeling. Only affects
-          live Art-Net frames — simulated sources use the universe number you configured.
+          incoming Art-Net universe numbers so they align with your console's labeling.
         </p>
         <div className="flex items-center gap-3">
           <label className="text-xs text-[#9CA3AF] font-mono">Offset</label>

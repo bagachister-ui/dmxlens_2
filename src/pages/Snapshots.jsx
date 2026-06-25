@@ -105,10 +105,7 @@ export default function Snapshots() {
     if (!window.confirm(`Delete "${show.name}" and all of its snapshots? This cannot be undone.`)) return;
     setBusy(`delShow:${show.id}`);
     progressBus.start();
-    const snaps = await base44.entities.Snapshot.filter({ show_id: show.id });
-    for (const s of snaps) {
-      await base44.entities.Snapshot.delete(s.id);
-    }
+    await base44.entities.Snapshot.deleteMany({ show_id: show.id });
     await base44.entities.Show.delete(show.id);
     setShows((prev) => prev.filter((s) => s.id !== show.id));
     progressBus.done();
