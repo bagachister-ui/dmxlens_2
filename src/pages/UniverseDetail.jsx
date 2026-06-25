@@ -33,7 +33,7 @@ export default function UniverseDetail() {
   const activeChannels = uni.channels
     ? Array.from(uni.channels).filter((v) => v > 0).length
     : 0;
-  const maxVal = uni.channels
+  const maxVal = uni.channels && uni.channels.length > 0
     ? Math.max(...Array.from(uni.channels))
     : 0;
 

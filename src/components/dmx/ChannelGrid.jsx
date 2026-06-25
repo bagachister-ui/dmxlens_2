@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useCallback } from 'react';
 
 const ChannelCell = memo(({ index, value, onHover }) => {
   const channelNum = index + 1;
@@ -34,10 +34,10 @@ ChannelCell.displayName = 'ChannelCell';
 export default function ChannelGrid({ channels, onChannelHover }) {
   const [hovered, setHovered] = useState(null);
 
-  const handleHover = (idx) => {
+  const handleHover = useCallback((idx) => {
     setHovered(idx);
     if (onChannelHover) onChannelHover(idx);
-  };
+  }, [onChannelHover]);
 
   if (!channels) {
     return (

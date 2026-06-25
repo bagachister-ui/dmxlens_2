@@ -9,10 +9,38 @@ const navItems = [
   { label: 'Snapshots', path: '/snapshots', icon: Camera },
 ];
 
-export default function Layout() {
-  const location = useLocation();
+function SidebarStatus() {
   const store = useDMXStore();
   const sourceCount = store.getAllUniverses().length;
+
+  return (
+    <div className="px-4 py-4 border-t border-[#2A2D35] space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-[#6B7280] font-mono tracking-wider uppercase">Mode</span>
+        <div className="flex items-center gap-1.5">
+          {store.mode === 'live' ? (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+              <span className="text-[10px] font-mono text-[#22C55E]">LIVE</span>
+            </>
+          ) : (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#6B7280]" />
+              <span className="text-[10px] font-mono text-[#6B7280]">OFFLINE</span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-[#6B7280] font-mono tracking-wider uppercase">Sources</span>
+        <span className="text-[10px] font-mono text-gray-300">{sourceCount}</span>
+      </div>
+    </div>
+  );
+}
+
+export default function Layout() {
+  const location = useLocation();
 
   return (
     <div className="flex h-screen bg-[#0D0F14] text-gray-100 overflow-hidden">
@@ -57,28 +85,7 @@ export default function Layout() {
         </nav>
 
         {/* Mode indicator */}
-        <div className="px-4 py-4 border-t border-[#2A2D35] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-[#6B7280] font-mono tracking-wider uppercase">Mode</span>
-            <div className="flex items-center gap-1.5">
-              {store.mode === 'live' ? (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
-                  <span className="text-[10px] font-mono text-[#22C55E]">LIVE</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#6B7280]" />
-                  <span className="text-[10px] font-mono text-[#6B7280]">OFFLINE</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-[#6B7280] font-mono tracking-wider uppercase">Sources</span>
-            <span className="text-[10px] font-mono text-gray-300">{sourceCount}</span>
-          </div>
-        </div>
+        <SidebarStatus />
       </aside>
 
       {/* Main content */}
