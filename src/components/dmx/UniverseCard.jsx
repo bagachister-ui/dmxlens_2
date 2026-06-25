@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { universeDetailPath } from '@/lib/dmxUtils';
 import ActivityPulse from './ActivityPulse';
 
 export default function UniverseCard({ universe }) {
@@ -14,11 +15,7 @@ export default function UniverseCard({ universe }) {
 
   return (
     <button
-      onClick={() =>
-        navigate(
-          `/universe/${universe.protocol}/${universe.universe}?ip=${encodeURIComponent(universe.sourceIP)}`
-        )
-      }
+      onClick={() => navigate(universeDetailPath(universe))}
       className="group relative bg-[#161920] border border-[#2A2D35] rounded-lg p-4 text-left transition-all hover:border-[#00E5FF]/40 hover:bg-[#1A1E27] cursor-pointer"
     >
       {/* Header */}

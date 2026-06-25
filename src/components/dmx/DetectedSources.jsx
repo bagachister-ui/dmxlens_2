@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Radio, Wifi, WifiOff } from 'lucide-react';
 import { dmxStore } from '@/lib/dmxStore';
 import { useDMXStore } from '@/hooks/useDMXStore';
-import { sortUniverses, universeKey } from '@/lib/dmxUtils';
+import { sortUniverses, universeKey, universeDetailPath } from '@/lib/dmxUtils';
 import ConnectionHistoryList from '@/components/dmx/ConnectionHistoryList';
 
 const PROTOCOLS = ['sACN', 'Art-Net'];
@@ -80,7 +80,7 @@ export default function DetectedSources() {
                   {protoSources.map((u) => (
                     <Link
                       key={universeKey(u)}
-                      to={`/universe/${u.protocol}/${u.universe}?ip=${encodeURIComponent(u.sourceIP)}`}
+                      to={universeDetailPath(u)}
                       title={`${u.sourceName} · ${u.sourceIP || 'unknown IP'} · ${u.packetRate.toFixed(1)} fps`}
                       className="flex items-center gap-1.5 bg-[#0D0F14] border border-[#2A2D35] rounded-md px-2 py-1 hover:border-[#00E5FF]/40 transition-colors"
                     >

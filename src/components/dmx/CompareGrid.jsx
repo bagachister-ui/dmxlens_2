@@ -48,7 +48,7 @@ export default function CompareGrid({ channelsA, channelsB, labelA, labelB, diff
 
   const rows = [];
   for (let i = 0; i < 512; i++) {
-    if (diffOnly && a[i] === b[i]) continue;
+    if (diffOnly && (a[i] || 0) === (b[i] || 0)) continue;
     rows.push(i);
   }
 

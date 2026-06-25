@@ -5,6 +5,12 @@ export function universeKey(u) {
   return `${u.protocol}:${u.universe}:${u.sourceIP || ''}`;
 }
 
+// Route to a source's detail page, carrying the sender IP to disambiguate
+// multiple senders on the same universe.
+export function universeDetailPath(u) {
+  return `/universe/${u.protocol}/${u.universe}?ip=${encodeURIComponent(u.sourceIP || '')}`;
+}
+
 // Sort detected sources: protocol → universe number → sender IP.
 export function sortUniverses(list) {
   return list
